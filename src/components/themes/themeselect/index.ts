@@ -3,6 +3,13 @@ import { forest } from "./forest";
 import { ocean } from "./ocean";
 import { sunset } from "./sunset";
 import { midnight } from "./midnight";
+import { lavender } from "./lavender";
+import { crimson } from "./crimson";
+import { emerald } from "./emerald";
+import { amber } from "./amber";
+import { sapphire } from "./sapphire";
+import { graphite } from "./graphite";
+import { slate } from "./slate";
 import { MantineTheme, MantineThemeOverride } from '@mantine/core';
 
 const focusStyles = (theme: MantineTheme) => ({
@@ -12,96 +19,21 @@ const focusStyles = (theme: MantineTheme) => ({
 });
 
 export const themes: Theme[] = [
-  {
-    label: 'Ocean',
-    mantineTheme: {
-      primaryColor: 'blue',
-      components: {
-        NavLink: {
-          styles: (theme: MantineTheme) => ({
-            root: {
-              '&[data-active]': {
-                backgroundColor: 'transparent !important',
-                '&:hover': {
-                  backgroundColor: 'var(--mantine-color-dark-6)',
-                },
-              },
-              '&:active': {
-                backgroundColor: 'transparent !important',
-              },
-              '&:hover': {
-                backgroundColor: 'var(--mantine-color-dark-6)',
-              },
-              '&:focus': {
-                backgroundColor: 'transparent !important',
-              },
-              '--_active-bg': 'transparent !important',
-              '--_hover-bg': 'var(--mantine-color-dark-6)',
-            },
-          }),
-        },
-        UnstyledButton: {
-          styles: (theme: MantineTheme) => ({
-            root: {
-              '&:focus': {
-                outline: 'none !important',
-                '-webkit-focus-ring-color': 'transparent !important',
-              },
-              '--_active-bg': 'transparent !important',
-              '--_hover-bg': 'var(--mantine-color-dark-6)',
-            },
-          }),
-        },
-        Tabs: {
-          styles: (theme: MantineTheme) => ({
-            tab: {
-              '&:focus': {
-                ...focusStyles(theme),
-                backgroundColor: 'transparent',
-              },
-            },
-            tabsList: {
-              borderBottom: 'var(--mantine-color-dark-4)',
-            }
-          }),
-        },
-        Input: {
-          styles: (theme: MantineTheme) => ({
-            input: {
-              backgroundColor: 'var(--mantine-color-dark-7)',
-              '&:focus': focusStyles(theme),
-              transition: 'all 150ms ease',
-            },
-          }),
-        },
-        Select: {
-          styles: (theme: MantineTheme) => ({
-            input: {
-              backgroundColor: 'var(--mantine-color-dark-7)',
-              '&:focus': focusStyles(theme),
-            },
-            dropdown: {
-              backgroundColor: 'var(--mantine-color-dark-7)',
-            },
-          }),
-        },
-        Button: {
-          styles: {
-            root: {
-            },
-          },
-        },
-      } as MantineThemeOverride['components'],
-      vars: {
-        activeColor: 'transparent',
-        hoverColor: 'var(--mantine-color-dark-6)',
-      },
-    },
-  },
-  forest,
   ocean,
+  forest,
   sunset,
   midnight,
+  lavender,
+  crimson,
+  emerald,
+  amber,
+  sapphire,
+  graphite,
+  slate,
 ];
 
-export { forest, ocean, sunset, midnight }; 
+export { 
+  forest, ocean, sunset, midnight, 
+  lavender, crimson, emerald, amber, sapphire,
+  graphite, slate 
+}; 

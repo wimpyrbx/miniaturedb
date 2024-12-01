@@ -1,9 +1,11 @@
 import { useState, useEffect, MouseEvent, useMemo } from 'react';
 import { themes } from './themes/themeselect';
-import { Box, ColorSwatch, Flex, SegmentedControl, Stack, Text, useMantineTheme, useMantineColorScheme, Group, Slider } from '@mantine/core';
+import { Box, Flex, SegmentedControl, Stack, Text, useMantineTheme, useMantineColorScheme, Group, Slider } from '@mantine/core';
 import { Theme } from '../lib/theme';
 import { IconSun, IconMoon } from '@tabler/icons-react';
 import { getTextColor } from '../lib/color';
+import { ThemeSelect } from './themes/themeselect/ThemeSelect';
+import type { MantineColorScheme } from '@mantine/core';
 
 const generateBackgroundColors = (theme: Theme, colorScheme: 'light' | 'dark') => {
   const { colors } = theme.mantineTheme;
@@ -123,7 +125,7 @@ const FloatingDiv = () => {
   }, [isDragging, dragOffset]);
 
   const backgroundColors = useMemo(
-    () => generateBackgroundColors(currentTheme, colorScheme),
+    () => generateBackgroundColors(currentTheme, colorScheme === 'auto' ? 'light' : colorScheme),
     [currentTheme, colorScheme]
   );
 
@@ -167,143 +169,76 @@ const FloatingDiv = () => {
         top: position.y,
         backgroundColor: theme.colors.dark[6],
         color: theme.colors.gray[0],
-        padding: '20px',
         borderRadius: theme.radius.md,
-        cursor: 'move',
+        cursor: isDragging ? 'move' : 'default',
         userSelect: 'none',
         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), 0 4px 8px rgba(0, 0, 0, 0.4)',
         zIndex: 1000,
         width: '220px',
+        overflow: 'hidden',
       }}
     >
-      <Stack gap="md">
-        <Text fw={500} size="sm">Theme Settings</Text>
-        
-        <SegmentedControl
-          fullWidth
-          size="xs"
-          data={[
-            {
-              value: 'light',
-              label: (
-                <Group gap={2}>
-                  <IconSun size={16} />
-                  <Box>Light</Box>
-                </Group>
-              ),
-            },
-            {
-              value: 'dark',
-              label: (
-                <Group gap={2}>
-                  <IconMoon size={16} />
-                  <Box>Dark</Box>
-                </Group>
-              ),
-            },
-          ]}
-          value={colorScheme}
-          onChange={(value: 'light' | 'dark') => setColorScheme(value)}
-        />
-
-        <Box>
-          <Text fw={500} size="sm" mb="xs">Theme</Text>
-          <Flex gap="xs" wrap="wrap">
-            {themes.map((t) => {
-              const themeColors = t.mantineTheme.colors?.[t.mantineTheme.primaryColor] || [];
-              return (
-                <ColorSwatch
-                  key={t.label}
-                  component="button"
-                  color={themeColors[6] || '#000'} // Use a mid-range color for better visibility
-                  onClick={() => handleThemeChange(t)}
-                  style={{ 
-                    cursor: 'pointer',
-                    width: 28,
-                    height: 28,
-                    // Add a subtle glow effect when selected
-                    boxShadow: currentTheme.label === t.label 
-                      ? `0 0 0 2px ${theme.colors[theme.primaryColor][5]}`
-                      : 'none',
-                  }}
-                />
-              );
-            })}
-          </Flex>
-        </Box>
-
-        <Box>
-          <Text fw={500} size="sm" mb="xs">Style</Text>
-          <SegmentedControl
-            fullWidth
-            data={[
-              { label: 'Default', value: 'default' },
-              { label: 'Compact', value: 'compact' },
-            ]}
-            value={currentStyle}
-            onChange={handleStyleChange}
-          />
-        </Box>
-
-        <Stack gap="xs">
-          <Text size="sm" c="dimmed">Main Background</Text>
-          
+      <div style={{
+        backgroundColor: theme.colors.dark[8],
+        padding: '12px 20px',
+        borderBottom: `1px solid ${theme.colors.dark[4]}`,
+      }}>
+        <Text fw={700} size="md">Theme Settings</Text>
+      </div>
+      <div style={{ padding: '20px' }}>
+        <Stack gap="md">
           <SegmentedControl
             fullWidth
             size="xs"
             data={[
-              { label: 'Solid', value: 'solid' },
-              { label: 'Gradient', value: 'gradient' }
+              {
+                value: 'light',
+                label: (
+                  <Group gap={2}>
+                    <IconSun size={16} />
+                    <Box>Light</Box>
+                  </Group>
+                ),
+              },
+              {
+                value: 'dark',
+                label: (
+                  <Group gap={2}>
+                    <IconMoon size={16} />
+                    <Box>Dark</Box>
+                  </Group>
+                ),
+              },
             ]}
-            value={useGradient ? 'gradient' : 'solid'}
-            onChange={(value) => setUseGradient(value === 'gradient')}
+            value={colorScheme}
+            onChange={setColorScheme}
           />
 
-          {useGradient ? (
-            <Slider
-              value={mainGradientIndex}
-              onChange={setMainGradientIndex}
-              min={0}
-              max={(backgroundColors.mainGradients?.length || 1) - 1}
-              step={1}
-              label={(value) => `Gradient ${value + 1}`}
-              marks={backgroundColors.mainGradients?.map((_, i) => ({
-                value: i,
-                label: `${i + 1}`
-              }))}
+          <Box style={{ position: 'relative', zIndex: 1001 }}>
+            <ThemeSelect 
+              value={currentTheme.label}
+              onChange={(themeLabel) => {
+                const selectedTheme = themes.find(t => t.label === themeLabel);
+                if (selectedTheme) {
+                  handleThemeChange(selectedTheme);
+                }
+              }}
             />
-          ) : (
-            <Slider
-              value={mainColorIndex}
-              onChange={setMainColorIndex}
-              min={0}
-              max={backgroundColors.main.length - 1}
-              step={1}
-              label={(value) => `Color ${value + 1}`}
-              marks={backgroundColors.main.map((_, i) => ({
-                value: i,
-                label: `${i + 1}`
-              }))}
-            />
-          )}
-        </Stack>
+          </Box>
 
-        <Stack gap="xs">
-          <Text size="sm" c="dimmed">Sidebar Background</Text>
-          <Slider
-            value={sidebarColorIndex}
-            onChange={setSidebarColorIndex}
-            min={0}
-            max={backgroundColors.sidebar.length - 1}
-            step={1}
-            label={(value) => `Color ${value + 1}`}
-            marks={backgroundColors.sidebar.map((_, i) => ({
-              value: i,
-              label: `${i + 1}`
-            }))}
-          />
+          <Box>
+            <SegmentedControl
+              fullWidth
+              data={[
+                { label: 'Default', value: 'default' },
+                { label: 'Compact', value: 'compact' },
+              ]}
+              value={currentStyle}
+              onChange={handleStyleChange}
+            />
+          </Box>
         </Stack>
-      </Stack>
+      </div>
     </div>
   );
 };

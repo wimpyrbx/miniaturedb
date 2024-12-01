@@ -1,6 +1,5 @@
-import { Select } from '@mantine/core';
+import { Radio, Stack } from '@mantine/core';
 import { themes } from '.';
-import { IconPalette } from '@tabler/icons-react';
 
 interface ThemeSelectProps {
   onChange: (theme: string) => void;
@@ -9,21 +8,58 @@ interface ThemeSelectProps {
 
 export function ThemeSelect({ onChange, value }: ThemeSelectProps) {
   return (
-    <Select
-      size="sm"
-      leftSection={<IconPalette size={16} />}
-      placeholder="Select theme"
-      data={themes.map(t => ({
-        value: t.label,
-        label: t.label,
-      }))}
+    <Radio.Group
       value={value}
-      onChange={(newValue) => newValue && onChange(newValue)}
-      styles={{
-        input: {
-          fontWeight: 500,
-        },
-      }}
-    />
+      onChange={onChange}
+    >
+      <Stack gap="xs">
+        {themes.map((theme) => (
+          <div
+            key={theme.label}
+            onClick={() => onChange(theme.label)}
+            style={{
+              cursor: 'pointer',
+              padding: '8px 12px',
+              borderRadius: 'var(--mantine-radius-sm)',
+              backgroundColor: value === theme.label ? 
+                'var(--mantine-color-teal-9)' : 
+                'var(--mantine-color-dark-7)',
+              transition: 'background-color 150ms ease',
+            }}
+            onMouseEnter={(e) => {
+              if (value !== theme.label) {
+                e.currentTarget.style.backgroundColor = 'var(--mantine-color-dark-6)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (value !== theme.label) {
+                e.currentTarget.style.backgroundColor = 'var(--mantine-color-dark-7)';
+              }
+            }}
+          >
+            <Radio
+              value={theme.label}
+              label={theme.label}
+              styles={{
+                root: {
+                  width: '100%',
+                },
+                radio: {
+                  backgroundColor: 'var(--mantine-color-dark-6)',
+                  borderColor: 'var(--mantine-color-dark-4)',
+                  '&[data-checked]': {
+                    backgroundColor: 'var(--mantine-color-teal-5)',
+                    borderColor: 'var(--mantine-color-teal-5)',
+                  },
+                },
+                label: {
+                  color: 'var(--mantine-color-white)',
+                },
+              }}
+            />
+          </div>
+        ))}
+      </Stack>
+    </Radio.Group>
   );
 } 
