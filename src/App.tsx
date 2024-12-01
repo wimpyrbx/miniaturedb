@@ -14,6 +14,7 @@ import { FormShowcase } from './pages/showcases/FormShowcase';
 import { DataShowcase } from './pages/showcases/DataShowcase';
 import { ModalShowcase } from './pages/showcases/ModalShowcase';
 import { MediaShowcase } from './pages/showcases/MediaShowcase';
+import FloatingDiv from './components/FloatingDiv';
 
 interface AuthState {
   authenticated: boolean;
@@ -95,6 +96,7 @@ function AppContent() {
         <Route path="/showcases/media" element={<MediaShowcase />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <FloatingDiv />
     </AuthenticatedLayout>
   );
 }
