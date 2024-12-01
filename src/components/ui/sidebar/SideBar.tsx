@@ -2,6 +2,8 @@ import { Box, UnstyledButton, Group, Text, AppShell, SegmentedControl, useMantin
 import { IconChevronRight, IconSun, IconMoon } from '@tabler/icons-react';
 import { ReactNode, useState } from 'react';
 import React from 'react';
+import { ThemeSelect } from '../ThemeSelect';
+import { themes } from '../../../theme';
 
 const styles = {
   menuItem: {
@@ -18,20 +20,24 @@ const styles = {
     borderBottom: '1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4))',
     padding: 'var(--mantine-spacing-xs)',
   },
-  themeSelector: {
+  themeControls: {
     padding: 'var(--mantine-spacing-xs)',
     borderBottom: '1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-dark-4))',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 'var(--mantine-spacing-xs)',
   },
   chevron: {
     transition: 'transform 200ms ease',
   },
 };
 
-function ThemeSelector() {
+function ThemeControls() {
   const { setColorScheme, colorScheme } = useMantineColorScheme();
+  const [currentTheme, setCurrentTheme] = useState(themes[0].label);
   
   return (
-    <div style={styles.themeSelector}>
+    <div style={styles.themeControls}>
       <SegmentedControl
         fullWidth
         size="xs"
@@ -57,6 +63,17 @@ function ThemeSelector() {
         ]}
         value={colorScheme}
         onChange={(value) => setColorScheme(value as 'light' | 'dark')}
+      />
+      <ThemeSelect 
+        value={currentTheme}
+        onChange={(value) => {
+          setCurrentTheme(value);
+          const theme = themes.find(t => t.label === value);
+          if (theme) {
+            const event = new CustomEvent('theme-change', { detail: theme });
+            window.dispatchEvent(event);
+          }
+        }}
       />
     </div>
   );
@@ -113,7 +130,7 @@ export function MenuGroup({ label, icon, children }: MenuGroupProps) {
 export function SideBar({ children }: { children: ReactNode }) {
   return (
     <AppShell.Navbar>
-      <ThemeSelector />
+      <ThemeControls />
       {children}
     </AppShell.Navbar>
   );

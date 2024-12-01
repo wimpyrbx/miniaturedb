@@ -1,13 +1,12 @@
 import '@mantine/core/styles.css';
-import { AppShell, MantineProvider, createTheme } from '@mantine/core';
+import { AppShell, MantineProvider } from '@mantine/core';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { SideBar, MenuGroup, MenuItem } from './components/ui/sidebar/SideBar';
 import { UIShowcase } from './pages/UIShowcase';
 import { IconHome, IconPalette } from '@tabler/icons-react';
-
-const theme = createTheme({
-  primaryColor: 'blue',
-});
+import { themes } from './theme';
+import { useEffect, useState } from 'react';
+import { Theme } from './lib/theme';
 
 function AppContent() {
   const navigate = useNavigate();
@@ -42,8 +41,21 @@ function AppContent() {
 }
 
 export default function App() {
+  const [currentTheme, setCurrentTheme] = useState(themes[0]);
+
+  useEffect(() => {
+    const handleThemeChange = (event: CustomEvent<Theme>) => {
+      setCurrentTheme(event.detail);
+    };
+
+    window.addEventListener('theme-change', handleThemeChange as EventListener);
+    return () => {
+      window.removeEventListener('theme-change', handleThemeChange as EventListener);
+    };
+  }, []);
+
   return (
-    <MantineProvider theme={theme} defaultColorScheme="dark">
+    <MantineProvider theme={currentTheme.mantineTheme} defaultColorScheme="dark">
       <BrowserRouter>
         <AppContent />
       </BrowserRouter>
