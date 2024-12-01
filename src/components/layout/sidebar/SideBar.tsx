@@ -24,17 +24,7 @@ const styles = {
     color: 'inherit',
     '&:hover': {
       backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
-    },
-    '&:focus': {
-      outline: 'none',
-    },
-    '&:focus-visible': {
-      outline: 'none',
-    },
-    '&:active': {
-      outline: 'none',
-      border: 'none',
-    },
+    }
   },
   menuGroup: {
     padding: 'var(--mantine-spacing-xs)',
@@ -60,18 +50,7 @@ export function MenuItem({ label, icon, onClick }: MenuItemProps) {
       style={styles.menuItem}
       styles={(theme) => ({
         root: {
-          '&:focus': {
-            outline: 'none',
-            border: 'none',
-          },
-          '&:active': {
-            outline: 'none',
-            border: 'none',
-          },
-          '&:focus-within': {
-            outline: 'none',
-            border: 'none',
-          }
+
         }
       })}
     >
@@ -115,25 +94,6 @@ export function SideBar({ onLogout }: { onLogout?: () => void }) {
             <MenuItem 
               label="Home" 
               onClick={() => navigate('/')} 
-            />
-          </MenuGroup>
-
-          <MenuGroup label="UI Showcases" icon={<IconPalette size={16} />}>
-            <MenuItem 
-              label="Forms & Inputs" 
-              onClick={() => navigate('/showcases/forms')} 
-            />
-            <MenuItem 
-              label="Data Visualization" 
-              onClick={() => navigate('/showcases/data')} 
-            />
-            <MenuItem 
-              label="Modals & Dialogs" 
-              onClick={() => navigate('/showcases/modals')} 
-            />
-            <MenuItem 
-              label="Media & Files" 
-              onClick={() => navigate('/showcases/media')} 
             />
           </MenuGroup>
         </div>

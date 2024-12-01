@@ -11,10 +11,6 @@ import { Theme } from './lib/theme';
 import api from './api/client';
 import { defaultStyle } from './components/themes/styleselect/default';
 import { compactStyle } from './components/themes/styleselect/compact';
-import { FormShowcase } from './pages/showcases/FormShowcase';
-import { DataShowcase } from './pages/showcases/DataShowcase';
-import { ModalShowcase } from './pages/showcases/ModalShowcase';
-import { MediaShowcase } from './pages/showcases/MediaShowcase';
 import FloatingDiv from './components/FloatingDiv';
 
 interface AuthState {
@@ -91,10 +87,6 @@ function AppContent() {
     <AuthenticatedLayout>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/showcases/forms" element={<FormShowcase />} />
-        <Route path="/showcases/data" element={<DataShowcase />} />
-        <Route path="/showcases/modals" element={<ModalShowcase />} />
-        <Route path="/showcases/media" element={<MediaShowcase />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <FloatingDiv />
@@ -155,11 +147,6 @@ export default function App() {
           Button: {
             styles: {
               root: {
-                '&:focus, &:focus-visible': {
-                  outline: 'none !important',
-                  '-webkit-focus-ring-color': 'transparent !important',
-                  boxShadow: 'none !important',
-                },
               },
             },
           },

@@ -47,15 +47,6 @@ export const themes: Theme[] = [
                 outline: 'none !important',
                 '-webkit-focus-ring-color': 'transparent !important',
               },
-              '&:focus-visible': {
-                outline: 'none !important',
-                '-webkit-focus-ring-color': 'transparent !important',
-              },
-              '&:active': {
-                outline: 'none !important',
-                border: 'none !important',
-                backgroundColor: 'transparent !important',
-              },
               '--_active-bg': 'transparent !important',
               '--_hover-bg': 'var(--mantine-color-dark-6)',
             },
@@ -67,16 +58,6 @@ export const themes: Theme[] = [
               '&:focus': {
                 ...focusStyles(theme),
                 backgroundColor: 'transparent',
-              },
-              '&:focus-within': {
-                outline: 'none',
-              },
-              '&[data-selected]': {
-                borderColor: theme.colors.teal[5],
-                '&:focus': focusStyles(theme),
-              },
-              '&:hover': {
-                backgroundColor: 'var(--mantine-color-dark-6)',
               },
             },
             tabsList: {
@@ -107,14 +88,6 @@ export const themes: Theme[] = [
         Button: {
           styles: {
             root: {
-              '&:focus': {
-                outline: 'none !important',
-                '-webkit-focus-ring-color': 'transparent !important',
-              },
-              '&:focus-visible': {
-                outline: 'none !important',
-                '-webkit-focus-ring-color': 'transparent !important',
-              },
             },
           },
         },
