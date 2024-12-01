@@ -1,16 +1,19 @@
 import '@mantine/core/styles.css';
 import { AppShell, MantineProvider, Loader, Center } from '@mantine/core';
 import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
-import { SideBar, MenuItem, MenuGroup } from './components/layout/sidebar/SideBar';
-import { UIShowcase } from './pages/UIShowcase';
+import { SideBar } from './components/layout/sidebar/SideBar';
 import { Login } from './pages/Login';
-import { IconHome, IconPalette, IconLogout } from '@tabler/icons-react';
+import { Home } from './pages/Home';
 import { themes } from './components/themes/themeselect';
 import { useEffect, useState, useMemo } from 'react';
 import { Theme } from './lib/theme';
 import api from './api/client';
 import { defaultStyle } from './components/themes/styleselect/default';
 import { compactStyle } from './components/themes/styleselect/compact';
+import { FormShowcase } from './pages/showcases/FormShowcase';
+import { DataShowcase } from './pages/showcases/DataShowcase';
+import { ModalShowcase } from './pages/showcases/ModalShowcase';
+import { MediaShowcase } from './pages/showcases/MediaShowcase';
 
 interface AuthState {
   authenticated: boolean;
@@ -42,20 +45,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
         }
       }}
     >
-      <SideBar onLogout={handleLogout}>
-        <MenuGroup label="Navigation" icon={<IconHome size={16} />}>
-          <MenuItem 
-            label="Home" 
-            onClick={() => navigate('/')} 
-          />
-          <MenuItem 
-            label="UI Showcase" 
-            icon={<IconPalette size={16} />}
-            onClick={() => navigate('/ui-showcase')} 
-          />
-        </MenuGroup>
-      </SideBar>
-
+      <SideBar onLogout={handleLogout} />
       <AppShell.Main>
         {children}
       </AppShell.Main>
@@ -98,8 +88,11 @@ function AppContent() {
   return (
     <AuthenticatedLayout>
       <Routes>
-        <Route path="/" element={<div>Welcome to MiniatureDB</div>} />
-        <Route path="/ui-showcase" element={<UIShowcase />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/showcases/forms" element={<FormShowcase />} />
+        <Route path="/showcases/data" element={<DataShowcase />} />
+        <Route path="/showcases/modals" element={<ModalShowcase />} />
+        <Route path="/showcases/media" element={<MediaShowcase />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AuthenticatedLayout>

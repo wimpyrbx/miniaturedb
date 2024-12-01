@@ -1,83 +1,166 @@
 import { useState } from 'react';
-import { TextInput, Button, Paper, Title, Container, Stack, Box } from '@mantine/core';
+import {
+  TextInput,
+  PasswordInput,
+  Paper,
+  Title,
+  Container,
+  Button,
+  Stack,
+  Text,
+  Divider,
+  Alert,
+  Center,
+  Box,
+  ThemeIcon,
+} from '@mantine/core';
+import { IconAlertCircle, IconLock } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
-import { ThemeSelect } from '../components/themes/themeselect/ThemeSelect';
-import { themes } from '../components/themes/themeselect';
 import api from '../api/client';
 
 export function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [currentTheme, setCurrentTheme] = useState(themes[0].label);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
     try {
-      const response = await api.post('/auth/login', { username, password });
-      if (response.data.success) {
-        navigate('/');
-      }
-    } catch (err) {
-      setError('Invalid credentials');
-    }
-  };
-
-  const handleThemeChange = (value: string) => {
-    setCurrentTheme(value);
-    const theme = themes.find(t => t.label === value);
-    if (theme) {
-      const event = new CustomEvent('theme-change', { detail: theme });
-      window.dispatchEvent(event);
+      await api.post('/auth/login', { username, password });
+      navigate('/');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Login failed');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <Box w="100%" h="100vh" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <Container size={420} m={0} p={0}>
-        <Stack gap="lg">
-          <Title ta="center">Welcome to MiniatureDB</Title>
-          
-          <Paper withBorder shadow="md" p={30} radius="md">
-            <Stack gap="md">
-              <ThemeSelect 
-                value={currentTheme}
-                onChange={handleThemeChange}
-              />
-              
-              <form onSubmit={handleSubmit}>
-                <TextInput
-                  label="Username"
-                  placeholder="Your username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                />
-                
-                <TextInput
-                  label="Password"
-                  type="password"
-                  placeholder="Your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  mt="md"
-                />
+    <Box 
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(145deg, #1a1b1e 0%, #25262b 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}
+    >
+      <Container size={420} my={40}>
+        <Center mb={40}>
+          <ThemeIcon size={60} radius={60} variant="light" color="gray.6">
+            <IconLock size={30} stroke={1.5} />
+          </ThemeIcon>
+        </Center>
 
-                {error && (
-                  <div style={{ color: 'red', marginTop: '10px' }}>{error}</div>
-                )}
-                
-                <Button type="submit" fullWidth mt="xl">
-                  Sign in
-                </Button>
-              </form>
+        <Title
+          order={1}
+          ta="center"
+          style={(theme) => ({
+            fontFamily: theme.fontFamily,
+            fontWeight: 900,
+            color: theme.white
+          })}
+        >
+          MiniatureDB
+        </Title>
+        <Text c="gray.4" size="sm" ta="center" mt={5} mb={30}>
+          Enter your credentials to access the dashboard
+        </Text>
+
+        <Paper withBorder shadow="md" p={30} radius="md" bg="dark.6">
+          <form onSubmit={handleSubmit}>
+            <Stack>
+              {error && (
+                <Alert icon={<IconAlertCircle size={16} stroke={1.5} />} color="red" variant="light">
+                  {error}
+                </Alert>
+              )}
+
+              <TextInput
+                required
+                label="Username"
+                placeholder="Your username"
+                value={username}
+                onChange={(event) => setUsername(event.currentTarget.value)}
+                styles={(theme) => ({
+                  label: {
+                    color: theme.colors.gray[4]
+                  },
+                  input: {
+                    backgroundColor: theme.colors.dark[7],
+                    borderColor: theme.colors.dark[4],
+                    color: theme.white,
+                    '&::placeholder': {
+                      color: theme.colors.gray[5]
+                    },
+                    '&:focus': {
+                      borderColor: theme.colors.gray[5]
+                    }
+                  }
+                })}
+              />
+
+              <PasswordInput
+                required
+                label="Password"
+                placeholder="Your password"
+                value={password}
+                onChange={(event) => setPassword(event.currentTarget.value)}
+                styles={(theme) => ({
+                  label: {
+                    color: theme.colors.gray[4]
+                  },
+                  input: {
+                    backgroundColor: theme.colors.dark[7],
+                    borderColor: theme.colors.dark[4],
+                    color: theme.white,
+                    '&::placeholder': {
+                      color: theme.colors.gray[5]
+                    },
+                    '&:focus': {
+                      borderColor: theme.colors.gray[5]
+                    }
+                  },
+                  innerInput: {
+                    color: theme.white
+                  }
+                })}
+              />
+
+              <Button 
+                fullWidth 
+                type="submit" 
+                loading={loading}
+                variant="filled"
+                color="gray.6"
+                size="md"
+              >
+                Sign in
+              </Button>
             </Stack>
-          </Paper>
-        </Stack>
+          </form>
+
+          <Divider 
+            label="Security Notice" 
+            labelPosition="center" 
+            my="lg"
+            styles={(theme) => ({
+              label: {
+                color: theme.colors.gray[5],
+                fontSize: theme.fontSizes.xs
+              }
+            })}
+          />
+
+          <Text size="xs" c="dimmed" ta="center">
+            This is a secure login page. Your connection is encrypted and your credentials are protected.
+          </Text>
+        </Paper>
       </Container>
     </Box>
   );

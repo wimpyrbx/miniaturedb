@@ -1,79 +1,52 @@
 export const compactStyle = {
-  spacing: {
-    xs: '0.25rem',
-    sm: '0.5rem',
-    md: '0.75rem',
-    lg: '1rem',
-  },
-  radius: {
-    xs: '2px',
-    sm: '3px',
-    md: '4px',
-    lg: '6px',
-  },
-  borders: {
-    width: '1px',
-    style: 'solid',
-  },
-  shadows: {
-    sm: '0 1px 2px rgba(0,0,0,0.05)',
-    md: '0 1px 3px rgba(0,0,0,0.05)',
-  },
   components: {
-    Input: {
-      styles: {
-        input: {
-          padding: '0.25rem 0.5rem',
-          minHeight: '1.75rem',
-          height: '1.75rem',
-        }
+    Group: {
+      defaultProps: {
+        gap: 'xs'
       }
     },
-    Select: {
-      styles: {
-        input: {
-          padding: '0.25rem 0.5rem',
-          minHeight: '1.75rem',
-          height: '1.75rem',
-        }
-      }
-    },
-    Textarea: {
-      styles: {
-        input: {
-          padding: '0.25rem 0.5rem',
-        }
+    Stack: {
+      defaultProps: {
+        gap: 'xs'
       }
     },
     Button: {
-      styles: {
-        root: {
-          padding: '0.25rem 0.75rem',
-          height: '1.75rem',
-        }
+      defaultProps: {
+        size: 'sm'
       }
     },
-    Card: {
-      styles: {
-        root: {
-          padding: '0.5rem',
-        }
+    Text: {
+      defaultProps: {
+        size: 'sm'
       }
     },
-    Menu: {
+    MenuItem: {
       styles: {
-        item: {
-          padding: '0.25rem 0.5rem',
-          minHeight: '1.5rem',
+        root: {
+          padding: '4px 8px'
         }
       }
     }
   },
-  layout: {
-    containerPadding: '0.5rem',
-    sidebarWidth: '200px',
-    headerHeight: '40px',
-    menuItemPadding: '0.25rem 0.5rem',
-    cardPadding: '0.5rem',
+  spacing: {
+    xs: '8px',
+    sm: '12px',
+    md: '16px',
+    lg: '24px',
+    xl: '32px'
+  },
+  radius: {
+    xs: '2px',
+    sm: '4px',
+    md: '6px',
+    lg: '8px',
+    xl: '12px'
+  },
+  shadows: {
+    xs: '0 1px 2px rgba(0, 0, 0, 0.05)',
+    sm: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    md: '0 4px 6px rgba(0, 0, 0, 0.1)',
+    lg: '0 10px 15px rgba(0, 0, 0, 0.1)',
+    xl: '0 20px 25px rgba(0, 0, 0, 0.1)'
   }
 }; 
