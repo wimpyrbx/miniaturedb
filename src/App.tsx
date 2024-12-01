@@ -1,15 +1,31 @@
 import '@mantine/core/styles.css';
-import { AppShell, MantineProvider } from '@mantine/core';
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { AppShell, MantineProvider, Loader, Center } from '@mantine/core';
+import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { SideBar, MenuItem, MenuGroup } from './components/layout/sidebar/SideBar';
 import { UIShowcase } from './pages/UIShowcase';
-import { IconHome, IconPalette } from '@tabler/icons-react';
+import { Login } from './pages/Login';
+import { IconHome, IconPalette, IconLogout } from '@tabler/icons-react';
 import { themes } from './components/themes/themeselect';
 import { useEffect, useState } from 'react';
 import { Theme } from './lib/theme';
+import api from './api/client';
 
-function AppContent() {
+interface AuthState {
+  authenticated: boolean;
+  loading: boolean;
+}
+
+function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await api.post('/auth/logout');
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
 
   return (
     <AppShell
@@ -27,16 +43,61 @@ function AppContent() {
             icon={<IconPalette size={16} />}
             onClick={() => navigate('/ui-showcase')} 
           />
+          <MenuItem 
+            label="Logout" 
+            icon={<IconLogout size={16} />}
+            onClick={handleLogout} 
+          />
         </MenuGroup>
       </SideBar>
 
       <AppShell.Main>
-        <Routes>
-          <Route path="/" element={<div>Welcome to MiniatureDB</div>} />
-          <Route path="/ui-showcase" element={<UIShowcase />} />
-        </Routes>
+        {children}
       </AppShell.Main>
     </AppShell>
+  );
+}
+
+function AppContent() {
+  const [auth, setAuth] = useState<AuthState>({ authenticated: false, loading: true });
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await api.get('/auth/status');
+        setAuth({ authenticated: response.data.authenticated, loading: false });
+        if (!response.data.authenticated && window.location.pathname !== '/login') {
+          navigate('/login');
+        }
+      } catch (error) {
+        setAuth({ authenticated: false, loading: false });
+        navigate('/login');
+      }
+    };
+    checkAuth();
+  }, [navigate]);
+
+  if (auth.loading) {
+    return (
+      <Center h="100vh">
+        <Loader size="xl" />
+      </Center>
+    );
+  }
+
+  if (!auth.authenticated) {
+    return <Login />;
+  }
+
+  return (
+    <AuthenticatedLayout>
+      <Routes>
+        <Route path="/" element={<div>Welcome to MiniatureDB</div>} />
+        <Route path="/ui-showcase" element={<UIShowcase />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AuthenticatedLayout>
   );
 }
 
