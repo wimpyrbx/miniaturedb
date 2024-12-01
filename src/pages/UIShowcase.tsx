@@ -1,136 +1,335 @@
+import { useState } from 'react';
 import {
   Title,
   Text,
-  Button,
   Card,
-  Badge,
+  Button,
   Group,
-  Switch,
+  Stack,
   TextInput,
   Textarea,
   Select,
-  Slider,
+  MultiSelect,
   Checkbox,
   Radio,
-  Stack,
-  Paper,
-  Alert,
-  Accordion,
+  Switch,
+  ColorSwatch,
+  Modal,
+  NumberInput,
+  Slider,
   Tabs,
-  Progress,
+  rem,
+  Box,
+  Paper,
+  Divider,
+  List,
+  ThemeIcon,
 } from '@mantine/core';
-import { IconAlertCircle } from '@tabler/icons-react';
+import { useDisclosure } from '@mantine/hooks';
+import { IconCheck, IconX, IconSettings, IconAdjustments } from '@tabler/icons-react';
+
+interface ModalSettings {
+  title: string;
+  size: string;
+  centered: boolean;
+  withCloseButton: boolean;
+  overlayBlur: number;
+}
+
+interface ColorBoxSwitchProps {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  color: string;
+  size?: number;
+}
+
+function ColorBoxSwitch({ checked, onChange, color, size = 20 }: ColorBoxSwitchProps) {
+  return (
+    <Box
+      style={{
+        width: rem(size),
+        height: rem(size),
+        backgroundColor: checked ? color : 'transparent',
+        border: `2px solid ${color}`,
+        borderRadius: 4,
+        cursor: 'pointer',
+        transition: 'background-color 200ms ease',
+      }}
+      onClick={() => onChange(!checked)}
+    />
+  );
+}
 
 export function UIShowcase() {
+  const [opened, { open, close }] = useDisclosure(false);
+  const [modalSettings, setModalSettings] = useState<ModalSettings>({
+    title: 'Modal Title',
+    size: 'md',
+    centered: true,
+    withCloseButton: true,
+    overlayBlur: 3,
+  });
+
+  const [formValues, setFormValues] = useState({
+    name: '',
+    email: '',
+    description: '',
+    category: '',
+    tags: [] as string[],
+    notifications: {
+      email: false,
+      push: false,
+      sms: false,
+    },
+    theme: 'light',
+    features: {
+      feature1: false,
+      feature2: false,
+      feature3: false,
+    }
+  });
+
   return (
-    <Stack gap="xl" p="md">
-      <Title order={1}>UI Components Showcase</Title>
+    <Stack gap="xl">
+      <Title order={2}>UI Components Showcase</Title>
 
-      <Paper shadow="sm" p="md">
-        <Title order={2} mb="md">Buttons & Badges</Title>
-        <Group>
-          <Button variant="filled">Filled</Button>
-          <Button variant="light">Light</Button>
-          <Button variant="outline">Outline</Button>
-          <Button variant="subtle">Subtle</Button>
-          <Badge>Default Badge</Badge>
-          <Badge color="red">Red Badge</Badge>
-          <Badge variant="dot">Dot Badge</Badge>
-        </Group>
-      </Paper>
+      <Tabs defaultValue="forms">
+        <Tabs.List>
+          <Tabs.Tab value="forms">Forms & Inputs</Tabs.Tab>
+          <Tabs.Tab value="modals">Modals & Dialogs</Tabs.Tab>
+          <Tabs.Tab value="switches">Switches & Controls</Tabs.Tab>
+        </Tabs.List>
 
-      <Paper shadow="sm" p="md">
-        <Title order={2} mb="md">Form Elements</Title>
-        <Stack>
-          <TextInput label="Text Input" placeholder="Type something..." />
-          <Textarea label="Textarea" placeholder="Multiple lines..." />
-          <Select
-            label="Select"
-            placeholder="Pick one"
-            data={['React', 'Vue', 'Angular', 'Svelte']}
-          />
-          <Slider
-            marks={[
-              { value: 20, label: '20%' },
-              { value: 50, label: '50%' },
-              { value: 80, label: '80%' },
-            ]}
-          />
-          <Switch label="Switch" />
-          <Checkbox label="Checkbox" />
-          <Radio.Group name="favoriteFramework" label="Select your favorite">
-            <Group mt="xs">
-              <Radio value="react" label="React" />
-              <Radio value="vue" label="Vue" />
-              <Radio value="angular" label="Angular" />
-            </Group>
-          </Radio.Group>
-        </Stack>
-      </Paper>
+        <Tabs.Panel value="forms" pt="md">
+          <Card withBorder>
+            <Stack gap="md">
+              <Title order={3}>Advanced Form Example</Title>
+              
+              <Group grow>
+                <TextInput
+                  label="Name"
+                  placeholder="Enter your name"
+                  value={formValues.name}
+                  onChange={(e) => setFormValues({ ...formValues, name: e.target.value })}
+                />
+                <TextInput
+                  label="Email"
+                  placeholder="your@email.com"
+                  value={formValues.email}
+                  onChange={(e) => setFormValues({ ...formValues, email: e.target.value })}
+                />
+              </Group>
 
-      <Paper shadow="sm" p="md">
-        <Title order={2} mb="md">Cards & Alerts</Title>
-        <Stack>
-          <Card shadow="sm" padding="lg" radius="md" withBorder>
-            <Text fw={500}>Card Title</Text>
-            <Text size="sm" c="dimmed">
-              This is a sample card component with some content.
-            </Text>
-            <Button variant="light" color="blue" fullWidth mt="md" radius="md">
-              Card Action
-            </Button>
+              <Textarea
+                label="Description"
+                placeholder="Enter description"
+                value={formValues.description}
+                onChange={(e) => setFormValues({ ...formValues, description: e.target.value })}
+                minRows={3}
+              />
+
+              <Group grow>
+                <Select
+                  label="Category"
+                  placeholder="Select category"
+                  data={['Work', 'Personal', 'Shopping', 'Travel']}
+                  value={formValues.category}
+                  onChange={(value) => setFormValues({ ...formValues, category: value || '' })}
+                />
+                <MultiSelect
+                  label="Tags"
+                  placeholder="Select tags"
+                  data={['Important', 'Urgent', 'Later', 'Ideas']}
+                  value={formValues.tags}
+                  onChange={(value) => setFormValues({ ...formValues, tags: value })}
+                />
+              </Group>
+
+              <Divider label="Notification Preferences" labelPosition="center" />
+
+              <Group>
+                <ColorBoxSwitch
+                  checked={formValues.notifications.email}
+                  onChange={(checked) => setFormValues({
+                    ...formValues,
+                    notifications: { ...formValues.notifications, email: checked }
+                  })}
+                  color="var(--mantine-color-blue-6)"
+                />
+                <Text size="sm">Email Notifications</Text>
+              </Group>
+
+              <Group>
+                <ColorBoxSwitch
+                  checked={formValues.notifications.push}
+                  onChange={(checked) => setFormValues({
+                    ...formValues,
+                    notifications: { ...formValues.notifications, push: checked }
+                  })}
+                  color="var(--mantine-color-green-6)"
+                />
+                <Text size="sm">Push Notifications</Text>
+              </Group>
+
+              <Group>
+                <ColorBoxSwitch
+                  checked={formValues.notifications.sms}
+                  onChange={(checked) => setFormValues({
+                    ...formValues,
+                    notifications: { ...formValues.notifications, sms: checked }
+                  })}
+                  color="var(--mantine-color-violet-6)"
+                />
+                <Text size="sm">SMS Notifications</Text>
+              </Group>
+
+              <Radio.Group
+                label="Theme Preference"
+                value={formValues.theme}
+                onChange={(value) => setFormValues({ ...formValues, theme: value })}
+              >
+                <Group mt="xs">
+                  <Radio value="light" label="Light" />
+                  <Radio value="dark" label="Dark" />
+                  <Radio value="system" label="System" />
+                </Group>
+              </Radio.Group>
+
+              <Button>Save Changes</Button>
+            </Stack>
           </Card>
+        </Tabs.Panel>
 
-          <Alert icon={<IconAlertCircle size={16} />} title="Alert!" color="red">
-            This is an important alert message.
-          </Alert>
-        </Stack>
-      </Paper>
+        <Tabs.Panel value="modals" pt="md">
+          <Card withBorder>
+            <Stack gap="md">
+              <Title order={3}>Modal Configuration</Title>
 
-      <Paper shadow="sm" p="md">
-        <Title order={2} mb="md">Accordion & Tabs</Title>
-        <Stack>
-          <Accordion>
-            <Accordion.Item value="item1">
-              <Accordion.Control>First Item</Accordion.Control>
-              <Accordion.Panel>First item content</Accordion.Panel>
-            </Accordion.Item>
-            <Accordion.Item value="item2">
-              <Accordion.Control>Second Item</Accordion.Control>
-              <Accordion.Panel>Second item content</Accordion.Panel>
-            </Accordion.Item>
-          </Accordion>
+              <TextInput
+                label="Modal Title"
+                value={modalSettings.title}
+                onChange={(e) => setModalSettings({ ...modalSettings, title: e.target.value })}
+              />
 
-          <Tabs defaultValue="first">
-            <Tabs.List>
-              <Tabs.Tab value="first">First Tab</Tabs.Tab>
-              <Tabs.Tab value="second">Second Tab</Tabs.Tab>
-            </Tabs.List>
+              <Select
+                label="Modal Size"
+                data={['xs', 'sm', 'md', 'lg', 'xl']}
+                value={modalSettings.size}
+                onChange={(value) => setModalSettings({ ...modalSettings, size: value || 'md' })}
+              />
 
-            <Tabs.Panel value="first" pt="xs">
-              First tab content
-            </Tabs.Panel>
-            <Tabs.Panel value="second" pt="xs">
-              Second tab content
-            </Tabs.Panel>
-          </Tabs>
-        </Stack>
-      </Paper>
+              <Group>
+                <Checkbox
+                  label="Centered"
+                  checked={modalSettings.centered}
+                  onChange={(e) => setModalSettings({ ...modalSettings, centered: e.currentTarget.checked })}
+                />
+                <Checkbox
+                  label="Close Button"
+                  checked={modalSettings.withCloseButton}
+                  onChange={(e) => setModalSettings({ ...modalSettings, withCloseButton: e.currentTarget.checked })}
+                />
+              </Group>
 
-      <Paper shadow="sm" p="md">
-        <Title order={2} mb="md">Progress</Title>
-        <Stack>
-          <Progress value={60} />
-          <Progress.Root size="xl">
-            <Progress.Section value={35} color="cyan">
-              In Progress
-            </Progress.Section>
-            <Progress.Section value={25} color="pink">
-              Pending
-            </Progress.Section>
-          </Progress.Root>
-        </Stack>
-      </Paper>
+              <Slider
+                label="Overlay Blur"
+                min={0}
+                max={10}
+                step={1}
+                value={modalSettings.overlayBlur}
+                onChange={(value) => setModalSettings({ ...modalSettings, overlayBlur: value })}
+                marks={[
+                  { value: 0, label: '0' },
+                  { value: 5, label: '5' },
+                  { value: 10, label: '10' },
+                ]}
+              />
+
+              <Button onClick={open} leftSection={<IconSettings size={16} />}>
+                Open Configured Modal
+              </Button>
+
+              <Modal
+                opened={opened}
+                onClose={close}
+                title={modalSettings.title}
+                size={modalSettings.size}
+                centered={modalSettings.centered}
+                withCloseButton={modalSettings.withCloseButton}
+                overlayProps={{ blur: modalSettings.overlayBlur }}
+              >
+                <Stack gap="md">
+                  <Text>This is a configurable modal dialog.</Text>
+                  <Text>Size: {modalSettings.size}</Text>
+                  <Text>Centered: {modalSettings.centered ? 'Yes' : 'No'}</Text>
+                  <Text>Close Button: {modalSettings.withCloseButton ? 'Yes' : 'No'}</Text>
+                  <Text>Overlay Blur: {modalSettings.overlayBlur}</Text>
+                </Stack>
+              </Modal>
+            </Stack>
+          </Card>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="switches" pt="md">
+          <Card withBorder>
+            <Stack gap="md">
+              <Title order={3}>Advanced Controls</Title>
+
+              <Paper withBorder p="md">
+                <Stack gap="md">
+                  <Text fw={500}>Feature Toggles</Text>
+                  <List spacing="xs">
+                    {Object.entries(formValues.features).map(([key, value]) => (
+                      <List.Item
+                        key={key}
+                        icon={
+                          <ThemeIcon color={value ? 'teal' : 'gray'} size={24} radius="xl">
+                            {value ? <IconCheck size={16} /> : <IconX size={16} />}
+                          </ThemeIcon>
+                        }
+                      >
+                        <Group justify="space-between">
+                          <Text size="sm">{key.charAt(0).toUpperCase() + key.slice(1)}</Text>
+                          <ColorBoxSwitch
+                            checked={value}
+                            onChange={(checked) => setFormValues({
+                              ...formValues,
+                              features: { ...formValues.features, [key]: checked }
+                            })}
+                            color={value ? 'var(--mantine-color-teal-6)' : 'var(--mantine-color-gray-6)'}
+                          />
+                        </Group>
+                      </List.Item>
+                    ))}
+                  </List>
+                </Stack>
+              </Paper>
+
+              <Paper withBorder p="md">
+                <Stack gap="md">
+                  <Text fw={500}>Standard Controls</Text>
+                  <Group>
+                    <Switch label="Regular Switch" />
+                    <Checkbox label="Regular Checkbox" />
+                  </Group>
+                </Stack>
+              </Paper>
+
+              <Paper withBorder p="md">
+                <Stack gap="md">
+                  <Text fw={500}>Color Box Switches</Text>
+                  <Group>
+                    <ColorBoxSwitch checked color="var(--mantine-color-blue-6)" onChange={() => {}} />
+                    <ColorBoxSwitch checked color="var(--mantine-color-green-6)" onChange={() => {}} />
+                    <ColorBoxSwitch checked color="var(--mantine-color-orange-6)" onChange={() => {}} />
+                    <ColorBoxSwitch checked={false} color="var(--mantine-color-red-6)" onChange={() => {}} />
+                  </Group>
+                </Stack>
+              </Paper>
+            </Stack>
+          </Card>
+        </Tabs.Panel>
+      </Tabs>
     </Stack>
   );
 } 

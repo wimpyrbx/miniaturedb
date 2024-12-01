@@ -6,9 +6,11 @@ import { UIShowcase } from './pages/UIShowcase';
 import { Login } from './pages/Login';
 import { IconHome, IconPalette, IconLogout } from '@tabler/icons-react';
 import { themes } from './components/themes/themeselect';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Theme } from './lib/theme';
 import api from './api/client';
+import { defaultStyle } from './components/themes/styleselect/default';
+import { compactStyle } from './components/themes/styleselect/compact';
 
 interface AuthState {
   authenticated: boolean;
@@ -30,9 +32,17 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   return (
     <AppShell
       padding="md"
-      navbar={{ width: 150, breakpoint: 'sm' }}
+      navbar={{ width: 250, breakpoint: 'sm' }}
+      styles={{
+        main: {
+          width: '100%',
+          minHeight: '100vh',
+          paddingRight: 'var(--mantine-spacing-md)',
+          overflow: 'auto'
+        }
+      }}
     >
-      <SideBar>
+      <SideBar onLogout={handleLogout}>
         <MenuGroup label="Navigation" icon={<IconHome size={16} />}>
           <MenuItem 
             label="Home" 
@@ -42,11 +52,6 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
             label="UI Showcase" 
             icon={<IconPalette size={16} />}
             onClick={() => navigate('/ui-showcase')} 
-          />
-          <MenuItem 
-            label="Logout" 
-            icon={<IconLogout size={16} />}
-            onClick={handleLogout} 
           />
         </MenuGroup>
       </SideBar>
@@ -103,20 +108,50 @@ function AppContent() {
 
 export default function App() {
   const [currentTheme, setCurrentTheme] = useState(themes[0]);
+  const [currentStyle, setCurrentStyle] = useState<'default' | 'compact'>('default');
 
   useEffect(() => {
     const handleThemeChange = (event: CustomEvent<Theme>) => {
       setCurrentTheme(event.detail);
     };
 
+    const handleStyleChange = (event: CustomEvent<'default' | 'compact'>) => {
+      setCurrentStyle(event.detail);
+    };
+
     window.addEventListener('theme-change', handleThemeChange as EventListener);
+    window.addEventListener('style-change', handleStyleChange as EventListener);
     return () => {
       window.removeEventListener('theme-change', handleThemeChange as EventListener);
+      window.removeEventListener('style-change', handleStyleChange as EventListener);
     };
   }, []);
 
+  const combinedTheme = useMemo(() => {
+    const style = currentStyle === 'compact' ? compactStyle : defaultStyle;
+    return {
+      ...currentTheme.mantineTheme,
+      components: {
+        ...currentTheme.mantineTheme.components,
+        ...style.components,
+      },
+      spacing: {
+        ...currentTheme.mantineTheme.spacing,
+        ...style.spacing,
+      },
+      radius: {
+        ...currentTheme.mantineTheme.radius,
+        ...style.radius,
+      },
+      shadows: {
+        ...currentTheme.mantineTheme.shadows,
+        ...style.shadows,
+      }
+    };
+  }, [currentTheme, currentStyle]);
+
   return (
-    <MantineProvider theme={currentTheme.mantineTheme} defaultColorScheme="dark">
+    <MantineProvider theme={combinedTheme} defaultColorScheme="dark">
       <BrowserRouter>
         <AppContent />
       </BrowserRouter>
