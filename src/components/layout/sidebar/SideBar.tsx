@@ -1,8 +1,8 @@
 import { Box, UnstyledButton, Group, Text, AppShell, SegmentedControl, useMantineColorScheme } from '@mantine/core';
 import { IconChevronRight, IconSun, IconMoon } from '@tabler/icons-react';
 import { ReactNode, useState } from 'react';
-import { ThemeSelect } from '../ThemeSelect';
-import { themes } from '../../../theme';
+import { ThemeSelect } from '../../themes/themeselect/ThemeSelect';
+import { themes } from '../../themes/themeselect';
 
 const styles = {
   menuItem: {

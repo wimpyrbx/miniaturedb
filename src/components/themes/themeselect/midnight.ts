@@ -1,5 +1,5 @@
-import { createMantineTheme } from "../lib/create-mantine-theme";
-import { Theme } from "../lib/theme";
+import { createMantineTheme } from "../../../lib/create-mantine-theme";
+import { Theme } from "../../../lib/theme";
 
 export const midnight: Theme = {
   label: "🌙 Midnight",

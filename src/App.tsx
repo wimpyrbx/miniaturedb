@@ -1,10 +1,10 @@
 import '@mantine/core/styles.css';
 import { AppShell, MantineProvider } from '@mantine/core';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
-import { SideBar, MenuGroup, MenuItem } from './components/ui/sidebar/SideBar';
+import { SideBar, MenuItem, MenuGroup } from './components/layout/sidebar/SideBar';
 import { UIShowcase } from './pages/UIShowcase';
 import { IconHome, IconPalette } from '@tabler/icons-react';
-import { themes } from './theme';
+import { themes } from './components/themes/themeselect';
 import { useEffect, useState } from 'react';
 import { Theme } from './lib/theme';
 

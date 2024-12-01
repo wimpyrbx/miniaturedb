@@ -1,6 +1,5 @@
-import { Select, Group, Text } from '@mantine/core';
-import { themes } from '../../theme';
-import { useMantineTheme } from '@mantine/core';
+import { Select } from '@mantine/core';
+import { themes } from '.';
 import { IconPalette } from '@tabler/icons-react';
 
 interface ThemeSelectProps {
@@ -9,8 +8,6 @@ interface ThemeSelectProps {
 }
 
 export function ThemeSelect({ onChange, value }: ThemeSelectProps) {
-  const theme = useMantineTheme();
-  
   return (
     <Select
       size="sm"
@@ -21,7 +18,7 @@ export function ThemeSelect({ onChange, value }: ThemeSelectProps) {
         label: t.label,
       }))}
       value={value}
-      onChange={onChange}
+      onChange={(newValue) => newValue && onChange(newValue)}
       styles={{
         input: {
           fontWeight: 500,
