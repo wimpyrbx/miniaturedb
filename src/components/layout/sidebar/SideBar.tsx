@@ -25,6 +25,16 @@ const styles = {
     '&:hover': {
       backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
     },
+    '&:focus': {
+      outline: 'none',
+    },
+    '&:focus-visible': {
+      outline: 'none',
+    },
+    '&:active': {
+      outline: 'none',
+      border: 'none',
+    },
   },
   menuGroup: {
     padding: 'var(--mantine-spacing-xs)',
@@ -45,7 +55,26 @@ const styles = {
 
 export function MenuItem({ label, icon, onClick }: MenuItemProps) {
   return (
-    <UnstyledButton onClick={onClick} style={styles.menuItem}>
+    <UnstyledButton 
+      onClick={onClick} 
+      style={styles.menuItem}
+      styles={(theme) => ({
+        root: {
+          '&:focus': {
+            outline: 'none',
+            border: 'none',
+          },
+          '&:active': {
+            outline: 'none',
+            border: 'none',
+          },
+          '&:focus-within': {
+            outline: 'none',
+            border: 'none',
+          }
+        }
+      })}
+    >
       <Group>
         {icon}
         <Text size="sm" inherit>{label}</Text>

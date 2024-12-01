@@ -34,7 +34,12 @@ const generateBackgroundColors = (theme: Theme, colorScheme: 'light' | 'dark') =
         { bg: colors?.secondary?.[8] || '#0c8599', text: getTextColor(colors?.secondary?.[8] || '#0c8599') },
         { bg: `${colors?.primary?.[7]}E6` || '#1971c2', text: getTextColor(colors?.primary?.[7] || '#1971c2') },
         { bg: `${colors?.secondary?.[7]}E6` || '#0b7285', text: getTextColor(colors?.secondary?.[7] || '#0b7285') }
-      ]
+      ],
+      formElements: [
+        { bg: '#f8f9fa', text: getTextColor('#f8f9fa') },  // Slightly darker than white
+        { bg: '#f1f3f5', text: getTextColor('#f1f3f5') },
+        { bg: colors?.gray?.[0] || '#e9ecef', text: getTextColor(colors?.gray?.[0] || '#e9ecef') },
+      ],
     };
   } else {
     return {
@@ -62,7 +67,12 @@ const generateBackgroundColors = (theme: Theme, colorScheme: 'light' | 'dark') =
         { bg: colors?.secondary?.[9] || '#0b6b7a', text: getTextColor(colors?.secondary?.[9] || '#0b6b7a') },
         { bg: `${colors?.primary?.[8]}E6` || '#1864ab', text: getTextColor(colors?.primary?.[8] || '#1864ab') },
         { bg: `${colors?.secondary?.[8]}E6` || '#0c8599', text: getTextColor(colors?.secondary?.[8] || '#0c8599') }
-      ]
+      ],
+      formElements: [
+        { bg: '#1A1B1F', text: getTextColor('#1A1B1F') },  // Slightly darker than main background
+        { bg: '#25262B', text: getTextColor('#25262B') },
+        { bg: colors?.dark?.[7] || '#1A1B1F', text: getTextColor(colors?.dark?.[7] || '#1A1B1F') },
+      ],
     };
   }
 };
@@ -161,7 +171,7 @@ const FloatingDiv = () => {
         borderRadius: theme.radius.md,
         cursor: 'move',
         userSelect: 'none',
-        boxShadow: theme.shadows.md,
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), 0 4px 8px rgba(0, 0, 0, 0.4)',
         zIndex: 1000,
         width: '220px',
       }}
@@ -199,15 +209,26 @@ const FloatingDiv = () => {
         <Box>
           <Text fw={500} size="sm" mb="xs">Theme</Text>
           <Flex gap="xs" wrap="wrap">
-            {themes.map((t) => (
-              <ColorSwatch
-                key={t.label}
-                component="button"
-                color={t.mantineTheme.primaryColor || '#000'}
-                onClick={() => handleThemeChange(t)}
-                style={{ cursor: 'pointer' }}
-              />
-            ))}
+            {themes.map((t) => {
+              const themeColors = t.mantineTheme.colors?.[t.mantineTheme.primaryColor] || [];
+              return (
+                <ColorSwatch
+                  key={t.label}
+                  component="button"
+                  color={themeColors[6] || '#000'} // Use a mid-range color for better visibility
+                  onClick={() => handleThemeChange(t)}
+                  style={{ 
+                    cursor: 'pointer',
+                    width: 28,
+                    height: 28,
+                    // Add a subtle glow effect when selected
+                    boxShadow: currentTheme.label === t.label 
+                      ? `0 0 0 2px ${theme.colors[theme.primaryColor][5]}`
+                      : 'none',
+                  }}
+                />
+              );
+            })}
           </Flex>
         </Box>
 

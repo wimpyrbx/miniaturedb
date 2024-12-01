@@ -1,4 +1,5 @@
 import '@mantine/core/styles.css';
+import './styles/global.css';
 import { AppShell, MantineProvider, Loader, Center } from '@mantine/core';
 import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { SideBar } from './components/layout/sidebar/SideBar';
@@ -146,7 +147,26 @@ export default function App() {
   }, [currentTheme, currentStyle]);
 
   return (
-    <MantineProvider theme={combinedTheme} defaultColorScheme="dark">
+    <MantineProvider
+      theme={{
+        ...combinedTheme,
+        components: {
+          ...combinedTheme.components,
+          Button: {
+            styles: {
+              root: {
+                '&:focus, &:focus-visible': {
+                  outline: 'none !important',
+                  '-webkit-focus-ring-color': 'transparent !important',
+                  boxShadow: 'none !important',
+                },
+              },
+            },
+          },
+        },
+      }}
+      defaultColorScheme="dark"
+    >
       <BrowserRouter>
         <AppContent />
       </BrowserRouter>
