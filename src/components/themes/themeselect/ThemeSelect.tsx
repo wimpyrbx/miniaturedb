@@ -47,10 +47,6 @@ export function ThemeSelect({ onChange, value }: ThemeSelectProps) {
                 radio: {
                   backgroundColor: 'var(--mantine-color-dark-6)',
                   borderColor: 'var(--mantine-color-dark-4)',
-                  '&[data-checked]': {
-                    backgroundColor: 'var(--mantine-color-teal-5)',
-                    borderColor: 'var(--mantine-color-teal-5)',
-                  },
                 },
                 label: {
                   color: 'var(--mantine-color-white)',
