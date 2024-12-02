@@ -1,4 +1,4 @@
-import { Title, Text, Stack, Card, SimpleGrid, ThemeIcon, rem } from '@mantine/core';
+import { Title, Text, Stack, Card, SimpleGrid, ThemeIcon } from '@mantine/core';
 import { IconDatabase, IconPalette, IconLock, IconServer } from '@tabler/icons-react';
 
 const features = [
@@ -38,12 +38,12 @@ export function Home() {
         {features.map((feature) => (
           <Card key={feature.title} shadow="sm" padding="lg" radius="md" withBorder>
             <ThemeIcon
-              size={rem(40)}
+              size={40}
               radius="md"
               variant="light"
               mb="md"
             >
-              <feature.icon size={rem(20)} />
+              <feature.icon size={20} />
             </ThemeIcon>
 
             <Text size="lg" fw={500} mb="xs">

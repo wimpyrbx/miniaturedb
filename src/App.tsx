@@ -12,10 +12,22 @@ import api from './api/client';
 import { defaultStyle } from './components/themes/styleselect/default';
 import { compactStyle } from './components/themes/styleselect/compact';
 import FloatingDiv from './components/FloatingDiv';
+import { Products } from './pages/Products';
+import { ProductAdmin } from './pages/ProductAdmin';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Notifications } from '@mantine/notifications';
+import { checkAuth } from './api/client';
+import { useMantineColorScheme } from '@mantine/core';
 
 interface AuthState {
   authenticated: boolean;
   loading: boolean;
+}
+
+interface UserSettings {
+  colormode: 'light' | 'dark';
+  colortheme: string;
+  styletheme: string;
 }
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
@@ -23,7 +35,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
 
   const handleLogout = async () => {
     try {
-      await api.post('/auth/logout');
+      await api.post('/api/auth/logout');
       navigate('/login');
     } catch (error) {
       console.error('Logout failed:', error);
@@ -51,48 +63,85 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-function AppContent() {
-  const [auth, setAuth] = useState<AuthState>({ authenticated: false, loading: true });
+export function AppContent() {
+  const [auth, setAuth] = useState<AuthState>({ loading: true, authenticated: false });
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const { setColorScheme } = useMantineColorScheme();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const loadSettings = async () => {
       try {
-        const response = await api.get('/auth/status');
-        setAuth({ authenticated: response.data.authenticated, loading: false });
-        if (!response.data.authenticated && window.location.pathname !== '/login') {
+        const response = await api.get<UserSettings>('/api/settings');
+        const settings = response.data;
+
+        // Apply color mode
+        setColorScheme(settings.colormode);
+
+        // Find and apply theme
+        const selectedTheme = themes.find(t => t.label === settings.colortheme);
+        if (selectedTheme) {
+          window.dispatchEvent(new CustomEvent('theme-change', { detail: selectedTheme }));
+        }
+
+        // Apply style theme
+        window.dispatchEvent(new CustomEvent('style-change', { 
+          detail: settings.styletheme as 'default' | 'compact' 
+        }));
+
+        setSettingsLoaded(true);
+      } catch (error) {
+        console.error('Error loading settings:', error);
+        setSettingsLoaded(true); // Continue with defaults if settings fail to load
+      }
+    };
+
+    const checkAuthStatus = async () => {
+      try {
+        const response = await checkAuth();
+        setAuth({ authenticated: response.authenticated, loading: false });
+        if (response.authenticated) {
+          await loadSettings();
+        } else if (window.location.pathname !== '/login') {
           navigate('/login');
         }
       } catch (error) {
+        console.error('Auth check failed:', error);
         setAuth({ authenticated: false, loading: false });
         navigate('/login');
       }
     };
-    checkAuth();
+
+    checkAuthStatus();
   }, [navigate]);
 
-  if (auth.loading) {
+  if (auth.loading || (auth.authenticated && !settingsLoaded)) {
     return (
-      <Center h="100vh">
+      <Center style={{ height: '100vh' }}>
         <Loader size="xl" />
       </Center>
     );
   }
 
   if (!auth.authenticated) {
-    return <Login />;
+    return <Login onLogin={() => setAuth({ loading: false, authenticated: true })} />;
   }
 
   return (
     <AuthenticatedLayout>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/products" element={<Products />} />
+        <Route path="/product-admin" element={<ProductAdmin />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <FloatingDiv />
     </AuthenticatedLayout>
   );
 }
+
+// Create a client
+const queryClient = new QueryClient();
 
 export default function App() {
   const [currentTheme, setCurrentTheme] = useState(themes[0]);
@@ -154,9 +203,12 @@ export default function App() {
       }}
       defaultColorScheme="dark"
     >
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <Notifications />
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
+      </QueryClientProvider>
     </MantineProvider>
   );
 }

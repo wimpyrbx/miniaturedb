@@ -37,6 +37,14 @@ miniaturedb/
 - API Endpoints: `api/<endpoint>/{get|post|put|delete}.ts`, exported in `api/index.js`
 - Database: Queries centralized in `db/` directory
 
+### API Rules
+- All API calls must use the centralized API client from `src/api/client.ts`
+- All API endpoints require authentication by default
+- API endpoints follow the pattern: `/api/<resource>/<action>`
+- Use HTTP methods appropriately (GET for fetching, POST for creating, etc.)
+- Handle 401 Unauthorized responses globally through the API client
+- Always include error handling in API endpoints
+
 ### Naming & Documentation
 - `.tsx` files: PascalCase (e.g., `UserProfile.tsx`)
 - `.ts` files & folders: lowercase (e.g., `utils.ts`, `hooks/`)

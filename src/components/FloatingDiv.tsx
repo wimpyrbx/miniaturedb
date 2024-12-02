@@ -1,10 +1,12 @@
 import { useState, useEffect, MouseEvent, useMemo } from 'react';
-import { themes } from './themes/themeselect';
-import { Box, SegmentedControl, Stack, Text, useMantineTheme, useMantineColorScheme, Group, Slider } from '@mantine/core';
-import { Theme } from '../lib/theme';
+import { Box, SegmentedControl, Stack, Text, useMantineTheme, useMantineColorScheme, Group } from '@mantine/core';
 import { IconSun, IconMoon } from '@tabler/icons-react';
+import { themes } from './themes/themeselect';
+import { Theme } from '../lib/theme';
 import { getTextColor } from '../lib/color';
 import { ThemeSelect } from './themes/themeselect/ThemeSelect';
+import api from '../api/client';
+import { getSettings } from '../api/settings/get';
 
 const generateBackgroundColors = (theme: Theme, colorScheme: 'light' | 'dark') => {
   const { colors } = theme.mantineTheme;
@@ -82,14 +84,39 @@ const FloatingDiv = () => {
   const theme = useMantineTheme();
   const { colorScheme, setColorScheme } = useMantineColorScheme();
   const [isDragging, setIsDragging] = useState(false);
-  const [position, setPosition] = useState({ x: 100, y: 100 });
+  const [position, setPosition] = useState({ x: window.innerWidth - 320, y: 100 });
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [currentStyle, setCurrentStyle] = useState<'default' | 'compact'>('default');
   const [mainColorIndex, setMainColorIndex] = useState(0);
   const [mainGradientIndex, setMainGradientIndex] = useState(0);
   const [sidebarColorIndex, setSidebarColorIndex] = useState(0);
-  const [useGradient, setUseGradient] = useState(false);
+  const [useGradient] = useState(false);
   const [currentTheme, setCurrentTheme] = useState(themes[0]);
+
+  // Load initial settings only once
+  useEffect(() => {
+    const loadInitialSettings = async () => {
+      try {
+        const settings = await getSettings();
+        if (settings.colormode) {
+          setColorScheme(settings.colormode as 'light' | 'dark');
+        }
+        if (settings.colortheme) {
+          const savedTheme = themes.find(t => t.label === settings.colortheme);
+          if (savedTheme) {
+            setCurrentTheme(savedTheme);
+          }
+        }
+        if (settings.styletheme) {
+          setCurrentStyle(settings.styletheme as 'default' | 'compact');
+        }
+      } catch (error) {
+        console.error('Failed to load initial settings:', error);
+      }
+    };
+
+    loadInitialSettings();
+  }, []);  // Empty dependency array means this runs once on mount
 
   // Dragging logic
   const handleMouseDown = (e: MouseEvent) => {
@@ -145,18 +172,48 @@ const FloatingDiv = () => {
     }
   }, [mainColorIndex, sidebarColorIndex, mainGradientIndex, useGradient, backgroundColors]);
 
-  // Theme handling
-  const handleThemeChange = (selectedTheme: Theme) => {
+  // Update theme handling
+  const handleThemeChange = async (selectedTheme: Theme) => {
     setCurrentTheme(selectedTheme);
     setMainColorIndex(0);
     setSidebarColorIndex(0);
     setMainGradientIndex(0);
     window.dispatchEvent(new CustomEvent('theme-change', { detail: selectedTheme }));
+
+    try {
+      await api.put('/api/settings', {
+        setting_key: 'colortheme',
+        setting_value: selectedTheme.label
+      });
+    } catch (error) {
+      console.error('Failed to save theme setting:', error);
+    }
   };
 
-  const handleStyleChange = (value: 'default' | 'compact') => {
+  const handleStyleChange = async (value: 'default' | 'compact') => {
     setCurrentStyle(value);
     window.dispatchEvent(new CustomEvent('style-change', { detail: value }));
+
+    try {
+      await api.put('/api/settings', {
+        setting_key: 'styletheme',
+        setting_value: value
+      });
+    } catch (error) {
+      console.error('Failed to save style setting:', error);
+    }
+  };
+
+  const handleColorSchemeChange = async (value: 'light' | 'dark') => {
+    setColorScheme(value);
+    try {
+      await api.put('/api/settings', {
+        setting_key: 'colormode',
+        setting_value: value
+      });
+    } catch (error) {
+      console.error('Failed to save color mode setting:', error);
+    }
   };
 
   return (
@@ -210,7 +267,7 @@ const FloatingDiv = () => {
               },
             ]}
             value={colorScheme}
-            onChange={(value) => setColorScheme(value as 'light' | 'dark')}
+            onChange={(value) => handleColorSchemeChange(value as 'light' | 'dark')}
           />
 
           <Box style={{ position: 'relative', zIndex: 1001 }}>
@@ -222,7 +279,7 @@ const FloatingDiv = () => {
                   handleThemeChange(selectedTheme);
                 }
               }}
-            />
+         />
           </Box>
 
           <Box>
@@ -232,11 +289,11 @@ const FloatingDiv = () => {
                 { label: 'Default', value: 'default' },
                 { label: 'Compact', value: 'compact' },
               ]}
-              value={currentStyle}
-              onChange={(value) => handleStyleChange(value as 'default' | 'compact')}
-            />
+           value={currentStyle}
+           onChange={(value) => handleStyleChange(value as 'default' | 'compact')}
+         />
           </Box>
-        </Stack>
+       </Stack>
       </div>
     </div>
   );

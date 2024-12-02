@@ -1,3 +1,8 @@
+/**
+ * @file Login.tsx
+ * @description Login page component with authentication handling
+ */
+
 import { useState } from 'react';
 import {
   TextInput,
@@ -16,27 +21,28 @@ import {
 } from '@mantine/core';
 import { IconAlertCircle, IconLock } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
-import api from '../api/client';
+import { login } from '../api/client';
 
-export function Login() {
+export function Login({ onLogin }: { onLogin: () => void }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
+    setIsLoading(true);
 
     try {
-      await api.post('/auth/login', { username, password });
+      await login({ username, password });
+      onLogin();
       navigate('/');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed');
+      setError(err.response?.data?.error || 'Invalid username or password');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -74,7 +80,7 @@ export function Login() {
 
         <Paper withBorder shadow="md" p={30} radius="md" bg="dark.6">
           <form onSubmit={handleSubmit}>
-            <Stack>
+            <Stack gap="md">
               {error && (
                 <Alert icon={<IconAlertCircle size={16} stroke={1.5} />} color="red" variant="light">
                   {error}
@@ -135,7 +141,7 @@ export function Login() {
               <Button 
                 fullWidth 
                 type="submit" 
-                loading={loading}
+                loading={isLoading}
                 variant="filled"
                 color="gray.6"
                 size="md"

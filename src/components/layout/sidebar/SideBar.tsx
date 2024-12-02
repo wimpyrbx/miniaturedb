@@ -1,11 +1,11 @@
-import { Box, UnstyledButton, Group, Text, AppShell, Stack, Button } from '@mantine/core';
-import { IconLogout, IconPalette, IconHome } from '@tabler/icons-react';
+import { UnstyledButton, Group, Text, AppShell, Stack, Button } from '@mantine/core';
+import { IconLogout, IconHome, IconPackage, IconSettings } from '@tabler/icons-react';
 import { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 interface MenuItemProps {
   label: string;
-  icon?: ReactNode;
+  icon: React.ElementType;
   onClick?: () => void;
 }
 
@@ -22,8 +22,12 @@ const styles = {
     padding: 'var(--mantine-spacing-xs)',
     borderRadius: 'var(--mantine-radius-sm)',
     color: 'inherit',
+    backgroundColor: 'transparent',
     '&:hover': {
       backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
+    },
+    '&[dataActive="true"]': {
+      backgroundColor: 'var(--mantine-color-blue-light)',
     }
   },
   menuGroup: {
@@ -43,19 +47,14 @@ const styles = {
   }
 };
 
-export function MenuItem({ label, icon, onClick }: MenuItemProps) {
+export function MenuItem({ label, icon: Icon, onClick }: MenuItemProps) {
   return (
     <UnstyledButton 
       onClick={onClick} 
       style={styles.menuItem}
-      styles={(theme) => ({
-        root: {
-
-        }
-      })}
     >
       <Group>
-        {icon}
+        {Icon && <Icon size={16} />}
         <Text size="sm" inherit>{label}</Text>
       </Group>
     </UnstyledButton>
@@ -79,6 +78,12 @@ export function MenuGroup({ label, icon, children }: MenuGroupProps) {
 export function SideBar({ onLogout }: { onLogout?: () => void }) {
   const navigate = useNavigate();
 
+  const items = [
+    { link: '/', label: 'Home', icon: IconHome },
+    { link: '/products', label: 'Products', icon: IconPackage },
+    { link: '/product-admin', label: 'Product Admin', icon: IconSettings },
+  ];
+
   return (
     <AppShell.Navbar 
       style={{ 
@@ -91,10 +96,14 @@ export function SideBar({ onLogout }: { onLogout?: () => void }) {
       <div style={styles.sidebarContainer}>
         <div style={styles.mainContent}>
           <MenuGroup label="Navigation" icon={<IconHome size={16} />}>
-            <MenuItem 
-              label="Home" 
-              onClick={() => navigate('/')} 
-            />
+            {items.map((item) => (
+              <MenuItem 
+                key={item.link} 
+                label={item.label} 
+                icon={item.icon}
+                onClick={() => navigate(item.link)} 
+              />
+            ))}
           </MenuGroup>
         </div>
 
