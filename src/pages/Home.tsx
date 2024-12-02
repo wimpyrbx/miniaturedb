@@ -26,7 +26,7 @@ const features = [
 
 export function Home() {
   return (
-    <Stack spacing="xl" p="md">
+    <Stack gap="xl" p="md">
       <div>
         <Title order={1} size="h1" mb="xs">Welcome to MiniatureDB</Title>
         <Text size="lg" c="dimmed">

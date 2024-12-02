@@ -1,11 +1,10 @@
 import { useState, useEffect, MouseEvent, useMemo } from 'react';
 import { themes } from './themes/themeselect';
-import { Box, Flex, SegmentedControl, Stack, Text, useMantineTheme, useMantineColorScheme, Group, Slider } from '@mantine/core';
+import { Box, SegmentedControl, Stack, Text, useMantineTheme, useMantineColorScheme, Group, Slider } from '@mantine/core';
 import { Theme } from '../lib/theme';
 import { IconSun, IconMoon } from '@tabler/icons-react';
 import { getTextColor } from '../lib/color';
 import { ThemeSelect } from './themes/themeselect/ThemeSelect';
-import type { MantineColorScheme } from '@mantine/core';
 
 const generateBackgroundColors = (theme: Theme, colorScheme: 'light' | 'dark') => {
   const { colors } = theme.mantineTheme;
@@ -192,7 +191,7 @@ const FloatingDiv = () => {
             size="xs"
             data={[
               {
-                value: 'light',
+                value: 'light' as const,
                 label: (
                   <Group gap={2}>
                     <IconSun size={16} />
@@ -201,7 +200,7 @@ const FloatingDiv = () => {
                 ),
               },
               {
-                value: 'dark',
+                value: 'dark' as const,
                 label: (
                   <Group gap={2}>
                     <IconMoon size={16} />
@@ -211,7 +210,7 @@ const FloatingDiv = () => {
               },
             ]}
             value={colorScheme}
-            onChange={setColorScheme}
+            onChange={(value) => setColorScheme(value as 'light' | 'dark')}
           />
 
           <Box style={{ position: 'relative', zIndex: 1001 }}>
@@ -234,7 +233,7 @@ const FloatingDiv = () => {
                 { label: 'Compact', value: 'compact' },
               ]}
               value={currentStyle}
-              onChange={handleStyleChange}
+              onChange={(value) => handleStyleChange(value as 'default' | 'compact')}
             />
           </Box>
         </Stack>
