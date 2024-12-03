@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Grid, Title, Card, Button, Group, Text, Stack, Table, Modal, TextInput, Notification, Center, Loader } from '@mantine/core';
+import { Grid, Title, Card, Button, Group, Text, Stack, Table, Modal, TextInput, Notification, Center, Loader, Box, useMantineColorScheme } from '@mantine/core';
 import { IconPlus, IconEdit, IconCheck, IconX } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
@@ -48,6 +48,7 @@ const openDeleteConfirmModal = (
 
 export function ProductAdmin() {
   const queryClient = useQueryClient();
+  const { colorScheme } = useMantineColorScheme();
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [selectedLine, setSelectedLine] = useState<ProductLine | null>(null);
 
@@ -485,151 +486,212 @@ export function ProductAdmin() {
 
   return (
     <>
-      <Stack p="md" gap="md">
-        <Title order={1}>Product Management</Title>
-        
-        <Grid gutter="md">
-          {/* Companies Column */}
-          <Grid.Col span={4}>
-            <Card withBorder shadow="sm">
-              <Group justify="space-between" mb="md">
-                <Title order={2} size="h3">Companies</Title>
-                <Button 
-                  size="xs"
-                  variant="light"
-                  color="green"
-                  leftSection={<IconPlus size={16} />}
-                  onClick={() => {
-                    setFormName('');
-                    setIsAddingCompany(true);
-                  }}
-                >
-                  Add Company
-                </Button>
-              </Group>
-              
-              {isLoadingCompanies ? (
-                <Center py="md">
-                  <Loader size="sm" />
-                </Center>
-              ) : companies?.length === 0 ? (
-                <Text c="dimmed" ta="center">No companies found</Text>
-              ) : (
-                <DataTable
-                  data={companies ?? []}
-                  columns={companyColumns}
-                  rowComponent={renderCompanyRow}
-                  withPagination
-                  withFiltering
-                  pageSize={10}
-                />
-              )}
-            </Card>
-          </Grid.Col>
-
-          {/* Product Lines Column */}
-          <Grid.Col span={4}>
-            <Card withBorder shadow="sm">
-              <Group justify="space-between" align="flex-start" mb="md">
-                <div>
-                  <Title order={2} size="h3" mb={selectedCompany ? 5 : 0}>Product Lines</Title>
-                  {selectedCompany && (
-                    <Text size="sm" c="dimmed">
-                      Company: <Text span fw={700} c="dimmed">{selectedCompany.name}</Text>
-                    </Text>
-                  )}
-                </div>
-                {selectedCompany && (
-                  <Button 
-                    size="xs"
-                    variant="light"
-                    color="green"
-                    leftSection={<IconPlus size={16} />}
-                    onClick={() => {
-                      setFormName('');
-                      setIsAddingLine(true);
-                    }}
-                  >
-                    Add Line
-                  </Button>
-                )}
-              </Group>
-              
-              {!selectedCompany ? (
-                <Text c="dimmed" ta="center">Select a company to view its product lines</Text>
-              ) : isLoadingLines ? (
-                <Center py="md">
-                  <Loader size="sm" />
-                </Center>
-              ) : productLines?.length === 0 ? (
-                <Text c="dimmed" ta="center">No product lines found</Text>
-              ) : (
-                <DataTable
-                  data={productLines ?? []}
-                  columns={lineColumns}
-                  rowComponent={renderLineRow}
-                  withPagination
-                  withFiltering
-                  pageSize={10}
-                />
-              )}
-            </Card>
-          </Grid.Col>
-
-          {/* Product Sets Column */}
-          <Grid.Col span={4}>
-            <Card withBorder shadow="sm">
-              <Group justify="space-between" align="flex-start" mb="md">
-                <div>
-                  <Title order={2} size="h3" mb={selectedLine ? 5 : 0}>Product Sets</Title>
-                  {selectedLine && (
+      <Stack p={0} gap="md">
+        <Box p="xs">
+          <Grid gutter="xs">
+            {/* Companies Column */}
+            <Grid.Col span={4}>
+              <Card shadow="xl" p={0}
+                style={{
+                  borderRadius: 'var(--mantine-radius-md)',
+                  border: '1px solid var(--mantine-color-primary-light)'
+                }}
+              >
+                <Group justify="space-between" p="sm" style={{ 
+                  borderBottom: '1px solid var(--mantine-color-default-border)',
+                  background: 'var(--mantine-color-primary-light)'
+                }}>
+                  <div>
+                    <Title order={2} size="h3">Companies</Title>
                     <Stack gap={2}>
-                      <Text size="sm" c="dimmed">
-                        Company: <Text span fw={700} c="dimmed">{selectedCompany?.name}</Text>
-                      </Text>
-                      <Text size="sm" c="dimmed">
-                        Product Line: <Text span fw={700} c="dimmed">{selectedLine.name}</Text>
-                      </Text>
+                      <Text size="sm" c="dimmed">First select a company below,</Text>
+                      <Text size="sm" c="dimmed">then select one of the product lines.</Text>
                     </Stack>
-                  )}
-                </div>
-                {selectedLine && (
+                  </div>
                   <Button 
                     size="xs"
-                    variant="light"
+                    variant="filled"
                     color="green"
                     leftSection={<IconPlus size={16} />}
                     onClick={() => {
                       setFormName('');
-                      setIsAddingSet(true);
+                      setIsAddingCompany(true);
                     }}
                   >
-                    Add Set
+                    Add Company
                   </Button>
-                )}
-              </Group>
-              
-              {!selectedLine ? (
-                <Text c="dimmed" ta="center">Select a product line to view its sets</Text>
-              ) : isLoadingSets ? (
-                <Center py="md">
-                  <Loader size="sm" />
-                </Center>
-              ) : productSets?.length === 0 ? (
-                <Text c="dimmed" ta="center">No product sets found</Text>
-              ) : (
-                <DataTable
-                  data={productSets ?? []}
-                  columns={setColumns}
-                  rowComponent={renderSetRow}
-                  withPagination
-                  withFiltering
-                  pageSize={10}
-                />
-              )}
-            </Card>
-          </Grid.Col>
-        </Grid>
+                </Group>
+                
+                <Stack p="sm">
+                  {isLoadingCompanies ? (
+                    <Center py="md">
+                      <Loader size="sm" />
+                    </Center>
+                  ) : companies?.length === 0 ? (
+                    <Text c="dimmed" ta="center">No companies found</Text>
+                  ) : (
+                    <DataTable
+                      data={companies ?? []}
+                      columns={companyColumns}
+                      rowComponent={renderCompanyRow}
+                      withPagination
+                      withFiltering
+                      pageSize={10}
+                    />
+                  )}
+                </Stack>
+              </Card>
+            </Grid.Col>
+
+            {/* Product Lines Column */}
+            <Grid.Col span={4}>
+              <Card shadow="xl" p={0}
+                style={{
+                  borderRadius: 'var(--mantine-radius-md)',
+                  border: '1px solid var(--mantine-color-primary-light)'
+                }}
+              >
+                <Group justify="space-between" align="flex-start" p="sm" style={{ 
+                  borderBottom: '1px solid var(--mantine-color-default-border)',
+                  background: 'var(--mantine-color-primary-light)',
+                  position: 'relative'
+                }}>
+                  <div>
+                    <Title order={2} size="h3" mb={selectedCompany ? 5 : 0}>Product Lines</Title>
+                    <Stack gap={2}>
+                      {selectedCompany ? (
+                        <>
+                          <Text size="sm" c="dimmed">
+                            Company: <Text span fw={700} c={colorScheme === 'light' ? 'dark.9' : 'white'}>{selectedCompany.name}</Text>
+                          </Text>
+                          <Text size="sm" c="dimmed">Select a product line below.</Text>
+                        </>
+                      ) : (
+                        <>
+                          <Text size="sm" c="dimmed">To select a product line,</Text>
+                          <Text size="sm" c="dimmed">you must first select a company.</Text>
+                        </>
+                      )}
+                    </Stack>
+                  </div>
+                  {selectedCompany && (
+                    <Button 
+                      size="xs"
+                      variant="filled"
+                      color="green"
+                      leftSection={<IconPlus size={16} />}
+                      style={{
+                        position: 'absolute',
+                        right: 'var(--mantine-spacing-sm)',
+                        top: 'var(--mantine-spacing-sm)'
+                      }}
+                      onClick={() => {
+                        setFormName('');
+                        setIsAddingLine(true);
+                      }}
+                    >
+                      Add Line
+                    </Button>
+                  )}
+                </Group>
+                
+                <Stack p="sm">
+                  {!selectedCompany ? (
+                    <Text c="dimmed" ta="center">Select a company to view its product lines</Text>
+                  ) : isLoadingLines ? (
+                    <Center py="md">
+                      <Loader size="sm" />
+                    </Center>
+                  ) : productLines?.length === 0 ? (
+                    <Text c="dimmed" ta="center">No product lines found</Text>
+                  ) : (
+                    <DataTable
+                      data={productLines ?? []}
+                      columns={lineColumns}
+                      rowComponent={renderLineRow}
+                      withPagination
+                      withFiltering
+                      pageSize={10}
+                    />
+                  )}
+                </Stack>
+              </Card>
+            </Grid.Col>
+
+            {/* Product Sets Column */}
+            <Grid.Col span={4}>
+              <Card shadow="xl" p={0}
+                style={{
+                  borderRadius: 'var(--mantine-radius-md)',
+                  border: '1px solid var(--mantine-color-primary-light)'
+                }}
+              >
+                <Group justify="space-between" align="flex-start" p="sm" style={{ 
+                  borderBottom: '1px solid var(--mantine-color-default-border)',
+                  background: 'var(--mantine-color-primary-light)'
+                }}>
+                  <div>
+                    <Title order={2} size="h3" mb={selectedLine ? 5 : 0}>Product Sets</Title>
+                    {selectedLine ? (
+                      <Stack gap={2}>
+                        <Text size="sm" c="dimmed">
+                          Company: <Text span fw={700} c={colorScheme === 'light' ? 'dark.9' : 'white'}>{selectedCompany?.name}</Text>
+                        </Text>
+                        <Text size="sm" c="dimmed">
+                          Product Line: <Text span fw={700} c={colorScheme === 'light' ? 'dark.9' : 'white'}>{selectedLine.name}</Text>
+                        </Text>
+                      </Stack>
+                    ) : (
+                      <Stack gap={2}>
+                        <Text size="sm" c="dimmed">
+                          To be able to see any product set you must select
+                        </Text>
+                        <Text size="sm" c="dimmed">
+                          both a company and one of it's product line.
+                        </Text>
+                      </Stack>
+                    )}
+                  </div>
+                  {selectedLine && (
+                    <Button 
+                      size="xs"
+                      variant="filled"
+                      color="green"
+                      leftSection={<IconPlus size={16} />}
+                      onClick={() => {
+                        setFormName('');
+                        setIsAddingSet(true);
+                      }}
+                    >
+                      Add Set
+                    </Button>
+                  )}
+                </Group>
+                
+                <Stack p="sm">
+                  {!selectedLine ? (
+                    <Text c="dimmed" ta="center">Select a product line to view its sets</Text>
+                  ) : isLoadingSets ? (
+                    <Center py="md">
+                      <Loader size="sm" />
+                    </Center>
+                  ) : productSets?.length === 0 ? (
+                    <Text c="dimmed" ta="center">No product sets found</Text>
+                  ) : (
+                    <DataTable
+                      data={productSets ?? []}
+                      columns={setColumns}
+                      rowComponent={renderSetRow}
+                      withPagination
+                      withFiltering
+                      pageSize={10}
+                    />
+                  )}
+                </Stack>
+              </Card>
+            </Grid.Col>
+          </Grid>
+        </Box>
       </Stack>
 
       {/* Modals */}

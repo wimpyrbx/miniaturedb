@@ -20,7 +20,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Notifications } from '@mantine/notifications';
 import { checkAuth } from './api/client';
 import { useMantineColorScheme } from '@mantine/core';
-import { themeOverrides } from './lib/theme-overrides';
 
 interface AuthState {
   authenticated: boolean;
@@ -186,8 +185,7 @@ export default function App() {
     <MantineProvider
       theme={{
         ...theme.mantineTheme,
-        ...style,
-        ...themeOverrides
+        ...style
       }}
     >
       {appContent}
