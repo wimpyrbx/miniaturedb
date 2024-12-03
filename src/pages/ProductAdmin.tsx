@@ -486,8 +486,7 @@ export function ProductAdmin() {
 
   return (
     <>
-      <Stack p={0} gap="md">
-        <Box p="xs">
+        <Box>
           <Grid gutter="xs">
             {/* Companies Column */}
             <Grid.Col span={4}>
@@ -513,7 +512,7 @@ export function ProductAdmin() {
                   </div>
                   <Button 
                     size="xs"
-                    variant="filled"
+                    variant="light"
                     color="green"
                     leftSection={<IconPlus size={16} />}
                     onClick={() => {
@@ -539,7 +538,7 @@ export function ProductAdmin() {
                       rowComponent={renderCompanyRow}
                       withPagination
                       withFiltering
-                      pageSize={10}
+                      pageSize={15}
                     />
                   )}
                 </Stack>
@@ -582,7 +581,7 @@ export function ProductAdmin() {
                   {selectedCompany && (
                     <Button 
                       size="xs"
-                      variant="filled"
+                      variant="light"
                       color="green"
                       leftSection={<IconPlus size={16} />}
                       style={{
@@ -616,7 +615,7 @@ export function ProductAdmin() {
                       rowComponent={renderLineRow}
                       withPagination
                       withFiltering
-                      pageSize={10}
+                      pageSize={15}
                     />
                   )}
                 </Stack>
@@ -659,7 +658,7 @@ export function ProductAdmin() {
                   {selectedLine && (
                     <Button 
                       size="xs"
-                      variant="filled"
+                      variant="light"
                       color="green"
                       leftSection={<IconPlus size={16} />}
                       onClick={() => {
@@ -688,7 +687,7 @@ export function ProductAdmin() {
                       rowComponent={renderSetRow}
                       withPagination
                       withFiltering
-                      pageSize={10}
+                      pageSize={15}
                     />
                   )}
                 </Stack>
@@ -696,7 +695,6 @@ export function ProductAdmin() {
             </Grid.Col>
           </Grid>
         </Box>
-      </Stack>
 
       {/* Modals */}
       <Modal 

@@ -346,6 +346,149 @@ app.put('/api/settings', requireAuth, async (
   }
 });
 
+// Classification endpoints
+// Types
+app.get('/api/classification/types', requireAuth, (_req, res) => {
+  try {
+    const types = minisDb.prepare('SELECT * FROM mini_types ORDER BY name').all();
+    res.json(types);
+  } catch (error) {
+    console.error('Error fetching types:', error);
+    res.status(500).json({ error: 'Failed to fetch types' });
+  }
+});
+
+app.post('/api/classification/types', requireAuth, (req, res) => {
+  try {
+    const { name } = req.body;
+    const result = minisDb.prepare(
+      'INSERT INTO mini_types (name) VALUES (?) RETURNING *'
+    ).get(name);
+    res.json(result);
+  } catch (error) {
+    console.error('Error creating type:', error);
+    res.status(500).json({ error: 'Failed to create type' });
+  }
+});
+
+app.put('/api/classification/types/:id', requireAuth, (req, res) => {
+  try {
+    const { name } = req.body;
+    const { id } = req.params;
+    const result = minisDb.prepare(
+      'UPDATE mini_types SET name = ? WHERE id = ? RETURNING *'
+    ).get(name, id);
+    if (result) {
+      res.json(result);
+    } else {
+      res.status(404).json({ error: 'Type not found' });
+    }
+  } catch (error) {
+    console.error('Error updating type:', error);
+    res.status(500).json({ error: 'Failed to update type' });
+  }
+});
+
+app.delete('/api/classification/types/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    minisDb.prepare('DELETE FROM mini_types WHERE id = ?').run(id);
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting type:', error);
+    res.status(500).json({ error: 'Failed to delete type' });
+  }
+});
+
+// Categories for a specific type
+app.get('/api/classification/types/:id/categories', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const categories = minisDb.prepare(`
+      SELECT mc.* 
+      FROM mini_categories mc
+      JOIN type_to_categories ttc ON mc.id = ttc.category_id
+      WHERE ttc.type_id = ?
+      ORDER BY mc.name
+    `).all(id);
+    res.json(categories);
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    res.status(500).json({ error: 'Failed to fetch categories' });
+  }
+});
+
+// Categories
+app.post('/api/classification/categories', requireAuth, (req, res) => {
+  try {
+    const { name, type_id } = req.body;
+    const db = minisDb.transaction((name, typeId) => {
+      // First create the category
+      const category = minisDb.prepare(
+        'INSERT INTO mini_categories (name) VALUES (?) RETURNING *'
+      ).get(name);
+      
+      // Then link it to the type
+      minisDb.prepare(
+        'INSERT INTO type_to_categories (type_id, category_id) VALUES (?, ?)'
+      ).run(typeId, category.id);
+      
+      return category;
+    });
+    
+    const result = db(name, type_id);
+    res.json(result);
+  } catch (error) {
+    console.error('Error creating category:', error);
+    res.status(500).json({ error: 'Failed to create category' });
+  }
+});
+
+app.put('/api/classification/categories/:id', requireAuth, (req, res) => {
+  try {
+    const { name } = req.body;
+    const { id } = req.params;
+    const result = minisDb.prepare(
+      'UPDATE mini_categories SET name = ? WHERE id = ? RETURNING *'
+    ).get(name, id);
+    if (result) {
+      res.json(result);
+    } else {
+      res.status(404).json({ error: 'Category not found' });
+    }
+  } catch (error) {
+    console.error('Error updating category:', error);
+    res.status(500).json({ error: 'Failed to update category' });
+  }
+});
+
+app.delete('/api/classification/categories/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    minisDb.prepare('DELETE FROM mini_categories WHERE id = ?').run(id);
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    res.status(500).json({ error: 'Failed to delete category' });
+  }
+});
+
+// Get all type-category relationships
+app.get('/api/classification/type-categories', requireAuth, (_req, res) => {
+  try {
+    const relationships = minisDb.prepare(`
+      SELECT mc.*, ttc.type_id
+      FROM mini_categories mc
+      JOIN type_to_categories ttc ON mc.id = ttc.category_id
+      ORDER BY mc.name
+    `).all();
+    res.json(relationships);
+  } catch (error) {
+    console.error('Error fetching type-category relationships:', error);
+    res.status(500).json({ error: 'Failed to fetch type-category relationships' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 }); 

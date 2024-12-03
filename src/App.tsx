@@ -15,6 +15,7 @@ import { compactStyle } from './components/themes/styleselect/compact';
 import FloatingDiv from './components/FloatingDiv';
 import Products from './pages/Products';
 import { ProductAdmin } from './pages/ProductAdmin';
+import { ClassificationAdmin } from './pages/ClassificationAdmin';
 import { UIExamples } from './pages/UIExamples';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Notifications } from '@mantine/notifications';
@@ -159,6 +160,16 @@ export default function App() {
               element={
                 authState.authenticated ? (
                   <AuthenticatedLayout><ProductAdmin /></AuthenticatedLayout>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              } 
+            />
+            <Route 
+              path="/classification-admin" 
+              element={
+                authState.authenticated ? (
+                  <AuthenticatedLayout><ClassificationAdmin /></AuthenticatedLayout>
                 ) : (
                   <Navigate to="/login" replace />
                 )
