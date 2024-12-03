@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Grid, Title, Card, Button, Group, Text, Stack, Table, Modal, TextInput, Notification, Center, Loader, Box, useMantineColorScheme } from '@mantine/core';
+import { Grid, Title, Card, Button, Group, Text, Stack, Table, Modal, TextInput, Notification, Center, Loader, Box, useMantineColorScheme, Switch } from '@mantine/core';
 import { IconPlus, IconEdit, IconCheck, IconX } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
@@ -484,6 +484,36 @@ export function ProductAdmin() {
     );
   };
 
+  // Add filter functions
+  const [showOnlyWithCompanyChildren, setShowOnlyWithCompanyChildren] = useState(false);
+  const [showOnlyWithLineChildren, setShowOnlyWithLineChildren] = useState(false);
+  const [showOnlyWithSetChildren, setShowOnlyWithSetChildren] = useState(false);
+
+  const filterCompaniesWithChildren = (companies: Company[]) => {
+    if (!showOnlyWithCompanyChildren) return companies;
+    return companies.filter(company => {
+      const lineCount = queryClient.getQueryData<ProductLine[]>(
+        ['productLines', company.id]
+      )?.length || 0;
+      return lineCount > 0;
+    });
+  };
+
+  const filterLinesWithChildren = (lines: ProductLine[]) => {
+    if (!showOnlyWithLineChildren) return lines;
+    return lines.filter(line => {
+      const setCount = queryClient.getQueryData<ProductSet[]>(
+        ['productSets', line.id]
+      )?.length || 0;
+      return setCount > 0;
+    });
+  };
+
+  const filterSetsWithChildren = (sets: ProductSet[]) => {
+    if (!showOnlyWithSetChildren) return sets;
+    return sets.filter(set => (set.mini_count ?? 0) > 0);
+  };
+
   return (
     <>
         <Box>
@@ -533,12 +563,24 @@ export function ProductAdmin() {
                     <Text c="dimmed" ta="center">No companies found</Text>
                   ) : (
                     <DataTable
-                      data={companies ?? []}
+                      data={filterCompaniesWithChildren(companies ?? [])}
                       columns={companyColumns}
                       rowComponent={renderCompanyRow}
                       withPagination
                       withFiltering
                       pageSize={15}
+                      filterInputProps={{
+                        rightSection: (
+                          <Group gap="xs" wrap="nowrap">
+                            <Text size="sm" c="dimmed">In Use Only</Text>
+                            <Switch
+                              checked={showOnlyWithCompanyChildren}
+                              onChange={(event) => setShowOnlyWithCompanyChildren(event.currentTarget.checked)}
+                              size="sm"
+                            />
+                          </Group>
+                        )
+                      }}
                     />
                   )}
                 </Stack>
@@ -610,12 +652,24 @@ export function ProductAdmin() {
                     <Text c="dimmed" ta="center">No product lines found</Text>
                   ) : (
                     <DataTable
-                      data={productLines ?? []}
+                      data={filterLinesWithChildren(productLines ?? [])}
                       columns={lineColumns}
                       rowComponent={renderLineRow}
                       withPagination
                       withFiltering
                       pageSize={15}
+                      filterInputProps={{
+                        rightSection: (
+                          <Group gap="xs" wrap="nowrap">
+                            <Text size="sm" c="dimmed">In Use Only</Text>
+                            <Switch
+                              checked={showOnlyWithLineChildren}
+                              onChange={(event) => setShowOnlyWithLineChildren(event.currentTarget.checked)}
+                              size="sm"
+                            />
+                          </Group>
+                        )
+                      }}
                     />
                   )}
                 </Stack>
@@ -682,12 +736,24 @@ export function ProductAdmin() {
                     <Text c="dimmed" ta="center">No product sets found</Text>
                   ) : (
                     <DataTable
-                      data={productSets ?? []}
+                      data={filterSetsWithChildren(productSets ?? [])}
                       columns={setColumns}
                       rowComponent={renderSetRow}
                       withPagination
                       withFiltering
                       pageSize={15}
+                      filterInputProps={{
+                        rightSection: (
+                          <Group gap="xs" wrap="nowrap">
+                            <Text size="sm" c="dimmed">In Use Only</Text>
+                            <Switch
+                              checked={showOnlyWithSetChildren}
+                              onChange={(event) => setShowOnlyWithSetChildren(event.currentTarget.checked)}
+                              size="sm"
+                            />
+                          </Group>
+                        )
+                      }}
                     />
                   )}
                 </Stack>

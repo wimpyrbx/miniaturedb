@@ -21,6 +21,10 @@ interface DataTableProps<T> {
   withPagination?: boolean;
   withFiltering?: boolean;
   pageSize?: number;
+  filterInputProps?: {
+    rightSection?: React.ReactNode;
+    rightSectionWidth?: number;
+  };
 }
 
 export function DataTable<T>({ 
@@ -29,7 +33,8 @@ export function DataTable<T>({
   rowComponent,
   withPagination = false,
   withFiltering = false,
-  pageSize = 10
+  pageSize = 10,
+  filterInputProps
 }: DataTableProps<T>) {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
@@ -67,12 +72,16 @@ export function DataTable<T>({
   return (
     <Stack gap="sm">
       {withFiltering && (
-        <TextInput
-          placeholder="Search..."
-          leftSection={<IconSearch size={16} />}
-          value={searchTerm}
-          onChange={(e) => handleSearch(e.currentTarget.value)}
-        />
+        <Group gap="sm" justify="space-between" align="center">
+          <TextInput
+            placeholder="Search..."
+            leftSection={<IconSearch size={16} />}
+            value={searchTerm}
+            onChange={(e) => handleSearch(e.currentTarget.value)}
+            style={{ flex: 1 }}
+          />
+          {filterInputProps?.rightSection}
+        </Group>
       )}
 
       <StyledTable>

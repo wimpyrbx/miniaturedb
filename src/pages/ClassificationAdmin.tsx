@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Grid, Title, Card, Button, Group, Text, Stack, Modal, TextInput, Notification, Center, Loader, Box, useMantineColorScheme, Table } from '@mantine/core';
+import { Grid, Title, Card, Button, Group, Text, Stack, Modal, TextInput, Notification, Center, Loader, Box, useMantineColorScheme, Table, Switch } from '@mantine/core';
 import { IconPlus, IconCheck, IconX } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TableActions } from '../components/ui/tableactions/TableActions';
@@ -76,6 +76,7 @@ export function ClassificationAdmin() {
   const [isAddingType, setIsAddingType] = useState(false);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [formName, setFormName] = useState('');
+  const [showOnlyWithTypeChildren, setShowOnlyWithTypeChildren] = useState(false);
 
   // Queries
   const { data: types, isLoading: isLoadingTypes } = useQuery({
@@ -376,6 +377,17 @@ export function ClassificationAdmin() {
     </Table.Tr>
   );
 
+  // Update filter function
+  const filterTypesWithChildren = (types: MiniatureType[]) => {
+    if (!showOnlyWithTypeChildren) return types;
+    return types.filter(type => {
+      const categoryCount = queryClient.getQueryData<MiniatureCategory[]>(
+        ['miniature_categories', type.id]
+      )?.length || 0;
+      return categoryCount > 0;
+    });
+  };
+
   return (
     <>
       <Stack gap="md">
@@ -431,12 +443,24 @@ export function ClassificationAdmin() {
                     <Text c="dimmed" ta="center">No types found</Text>
                   ) : (
                     <DataTable
-                      data={types ?? []}
+                      data={filterTypesWithChildren(types ?? [])}
                       columns={typeColumns}
                       rowComponent={renderTypeRow}
                       withPagination
                       withFiltering
                       pageSize={15}
+                      filterInputProps={{
+                        rightSection: (
+                          <Group gap="xs" wrap="nowrap">
+                            <Text size="sm" c="dimmed">In Use Only</Text>
+                            <Switch
+                              checked={showOnlyWithTypeChildren}
+                              onChange={(event) => setShowOnlyWithTypeChildren(event.currentTarget.checked)}
+                              size="sm"
+                            />
+                          </Group>
+                        )
+                      }}
                     />
                   )}
                 </Stack>
