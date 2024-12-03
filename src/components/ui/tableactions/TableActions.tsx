@@ -20,6 +20,7 @@ interface TableActionsProps {
   editIcon?: Icon;
   deleteIcon?: Icon;
   deleteColor?: MantineColor;
+  hideEdit?: boolean;
 }
 
 export function TableActions({ 
@@ -31,7 +32,8 @@ export function TableActions({
   elementType = 'button',
   editIcon: EditIcon = IconEdit,
   deleteIcon: DeleteIcon = IconTrash,
-  deleteColor = 'red.6'
+  deleteColor = 'red.6',
+  hideEdit = false
 }: TableActionsProps) {
   const iconSize = size === 'xs' ? 16 : size === 'sm' ? 18 : 20;
 
@@ -65,14 +67,16 @@ export function TableActions({
   if (elementType === 'icon') {
     return (
       <Group gap="6">
-        <ActionIcon 
-          size={size}
-          onClick={onEdit}
-          title="Edit item"
-          color="var(--mantine-color-primary-8)"
-        >
-          <EditIcon size={iconSize} />
-        </ActionIcon>
+        {!hideEdit && (
+          <ActionIcon 
+            size={size}
+            onClick={onEdit}
+            title="Edit item"
+            color="var(--mantine-color-primary-8)"
+          >
+            <EditIcon size={iconSize} />
+          </ActionIcon>
+        )}
         {!canDelete && deleteTooltip ? (
           <Tooltip label={deleteTooltip}>
             {deleteButton}
@@ -84,14 +88,16 @@ export function TableActions({
 
   return (
     <Group gap="6">
-      <Button 
-        variant="light"
-        size={size}
-        onClick={onEdit}
-        leftSection={<EditIcon size={iconSize} />}
-      >
-        Edit
-      </Button>
+      {!hideEdit && (
+        <Button 
+          variant="light"
+          size={size}
+          onClick={onEdit}
+          leftSection={<EditIcon size={iconSize} />}
+        >
+          Edit
+        </Button>
+      )}
       {!canDelete && deleteTooltip ? (
         <Tooltip label={deleteTooltip}>
           {deleteButton}

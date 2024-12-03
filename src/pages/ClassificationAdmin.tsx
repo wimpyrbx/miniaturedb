@@ -3,9 +3,9 @@
  * @description Admin page for managing miniature types and their categories in a hierarchical view
  */
 
-import { useState, useEffect } from 'react';
-import { Grid, Title, Card, Button, Group, Text, Stack, Modal, TextInput, Notification, Center, Loader, Box, useMantineColorScheme, Table, Switch } from '@mantine/core';
-import { IconPlus, IconCheck, IconX } from '@tabler/icons-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Grid, Title, Card, Button, Group, Text, Stack, Modal, TextInput, Notification, Center, Loader, Box, useMantineColorScheme, Table, Switch, ScrollArea, UnstyledButton, useMantineTheme } from '@mantine/core';
+import { IconPlus, IconCheck, IconX, IconCircleCheck, IconCircle } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TableActions } from '../components/ui/tableactions/TableActions';
 import { modals } from '@mantine/modals';
@@ -21,6 +21,10 @@ interface MiniatureCategory {
   id: number;
   name: string;
   type_id: number;
+}
+
+interface CategoryWithSelection extends MiniatureCategory {
+  isSelected: boolean;
 }
 
 // Form types
@@ -50,6 +54,7 @@ const openDeleteConfirmModal = (
 export function ClassificationAdmin() {
   const queryClient = useQueryClient();
   const { colorScheme } = useMantineColorScheme();
+  const theme = useMantineTheme();
   const [selectedType, setSelectedType] = useState<MiniatureType | null>(null);
 
   // Notification state
@@ -75,6 +80,7 @@ export function ClassificationAdmin() {
   const [editCategory, setEditCategory] = useState<MiniatureCategory | null>(null);
   const [isAddingType, setIsAddingType] = useState(false);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [formName, setFormName] = useState('');
   const [showOnlyWithTypeChildren, setShowOnlyWithTypeChildren] = useState(false);
 
@@ -83,8 +89,8 @@ export function ClassificationAdmin() {
     queryKey: ['miniature_types'],
     queryFn: async () => {
       const [typesResponse, relationshipsResponse] = await Promise.all([
-        fetch('/api/classification/types'),
-        fetch('/api/classification/type-categories')
+        fetch('/api/classification/types', { credentials: 'include' }),
+        fetch('/api/classification/type-categories', { credentials: 'include' })
       ]);
 
       if (!typesResponse.ok) throw new Error('Failed to fetch types');
@@ -110,8 +116,19 @@ export function ClassificationAdmin() {
         );
       });
 
+      // Also store empty arrays for types with no categories
+      types.forEach((type: MiniatureType) => {
+        if (!categoriesByType[type.id]) {
+          queryClient.setQueryData(
+            ['miniature_categories', type.id],
+            []
+          );
+        }
+      });
+
       return types;
-    }
+    },
+    staleTime: 30000 // Keep the data fresh for 30 seconds
   });
 
   const { data: categories, isLoading: isLoadingCategories } = useQuery({
@@ -123,12 +140,36 @@ export function ClassificationAdmin() {
       if (cached) return cached;
 
       // If not in cache, fetch from server
-      const response = await fetch(`/api/classification/types/${selectedType.id}/categories`);
+      const response = await fetch(`/api/classification/types/${selectedType.id}/categories`, { credentials: 'include' });
       if (!response.ok) throw new Error('Failed to fetch categories');
-      return response.json();
+      const data = await response.json();
+      
+      // Update the cache
+      queryClient.setQueryData(['miniature_categories', selectedType.id], data);
+      return data;
     },
-    enabled: !!selectedType
+    enabled: !!selectedType,
+    staleTime: 30000 // Keep the data fresh for 30 seconds
   });
+
+  const { data: allCategories } = useQuery({
+    queryKey: ['all_categories'],
+    queryFn: async () => {
+      const response = await fetch('/api/classification/categories', { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch all categories');
+      return response.json();
+    }
+  });
+
+  // Filter out categories that are already assigned to the selected type
+  const categoriesWithSelection = useMemo(() => {
+    if (!allCategories || !selectedType) return [];
+    const assignedCategoryIds = new Set(categories?.map((c: MiniatureCategory) => c.id.toString()) || []);
+    return allCategories.map((category: MiniatureCategory): CategoryWithSelection => ({
+      ...category,
+      isSelected: assignedCategoryIds.has(category.id.toString())
+    }));
+  }, [allCategories, selectedType, categories]);
 
   // Mutations
   const typeMutation = useMutation({
@@ -138,6 +179,7 @@ export function ClassificationAdmin() {
         {
           method: data.id ? 'PUT' : 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ name: data.name })
         }
       );
@@ -167,32 +209,44 @@ export function ClassificationAdmin() {
   });
 
   const categoryMutation = useMutation({
-    mutationFn: async (data: { id?: number; name: string; type_id: number }) => {
-      const response = await fetch(
-        data.id ? `/api/classification/categories/${data.id}` : '/api/classification/categories',
-        {
-          method: data.id ? 'PUT' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: data.name, type_id: data.type_id })
-        }
-      );
-      if (!response.ok) throw new Error('Failed to save category');
+    mutationFn: async (data: { typeId: number; categoryIds: number[] }) => {
+      const response = await fetch(`/api/classification/types/${data.typeId}/categories`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ categoryIds: data.categoryIds })
+      });
+      if (!response.ok) throw new Error('Failed to update category assignments');
       return response.json();
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['type-categories'] });
-      queryClient.invalidateQueries({ 
-        queryKey: ['miniature_categories', variables.type_id] 
-      });
-      queryClient.invalidateQueries({ queryKey: ['miniature_types'] });
+    onSuccess: (data, variables) => {
+      // Set the new categories directly in the cache
+      queryClient.setQueryData(
+        ['miniature_categories', variables.typeId],
+        data
+      );
       
-      setEditCategory(null);
+      // Update the type-categories relationships
+      queryClient.setQueryData(
+        ['type-categories'],
+        (oldData: any) => oldData?.filter((cat: any) => cat.type_id !== variables.typeId) ?? []
+      );
+      
+      // Force refetch of types to update counts
+      queryClient.invalidateQueries({ 
+        queryKey: ['miniature_types'],
+        refetchType: 'all'
+      });
+
       setIsAddingCategory(false);
-      setFormName('');
+      setSelectedCategories([]);
+      
       setNotification({
         show: true,
-        title: variables.id ? 'Category Updated' : 'Category Created',
-        message: `Successfully ${variables.id ? 'updated' : 'created'} category "${variables.name}"`,
+        title: 'Categories Updated',
+        message: data.length === 0 
+          ? 'All categories have been removed' 
+          : `Successfully updated to ${data.length} ${data.length === 1 ? 'category' : 'categories'}`,
         color: 'green'
       });
     },
@@ -210,7 +264,8 @@ export function ClassificationAdmin() {
   const typeDeleteMutation = useMutation({
     mutationFn: async (id: number) => {
       const response = await fetch(`/api/classification/types/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to delete type');
     },
@@ -234,20 +289,39 @@ export function ClassificationAdmin() {
   });
 
   const categoryDeleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const response = await fetch(`/api/classification/categories/${id}`, {
-        method: 'DELETE'
+    mutationFn: async ({ categoryId, typeId }: { categoryId: number; typeId: number }) => {
+      const response = await fetch(`/api/classification/categories/${categoryId}`, {
+        method: 'DELETE',
+        credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to delete category');
+      return { categoryId, typeId };
     },
-    onSuccess: () => {
-      if (selectedType) {
-        queryClient.invalidateQueries({ queryKey: ['type-categories'] });
-        queryClient.invalidateQueries({ 
-          queryKey: ['miniature_categories', selectedType.id] 
-        });
-        queryClient.invalidateQueries({ queryKey: ['miniature_types'] });
-      }
+    onSuccess: (data) => {
+      // Update the categories for this type directly in the cache
+      queryClient.setQueryData(
+        ['miniature_categories', data.typeId],
+        (oldData: MiniatureCategory[] | undefined) => 
+          oldData?.filter(cat => cat.id !== data.categoryId) ?? []
+      );
+      
+      // Update the type-categories relationships
+      queryClient.setQueryData(
+        ['type-categories'],
+        (oldData: MiniatureCategory[] | undefined) =>
+          oldData?.filter(cat => cat.id !== data.categoryId) ?? []
+      );
+      
+      // Update all categories list
+      queryClient.setQueryData(
+        ['all_categories'],
+        (oldData: MiniatureCategory[] | undefined) =>
+          oldData?.filter(cat => cat.id !== data.categoryId) ?? []
+      );
+      
+      // Force refetch of types to update counts
+      queryClient.invalidateQueries({ queryKey: ['miniature_types'] });
+
       setNotification({
         show: true,
         title: 'Category Deleted',
@@ -277,16 +351,9 @@ export function ClassificationAdmin() {
   const handleCategorySubmit = () => {
     if (!selectedType) return;
     if (editCategory) {
-      categoryMutation.mutate({ 
-        id: editCategory.id, 
-        name: formName, 
-        type_id: selectedType.id 
-      });
+      // This block can be removed since we no longer support editing
     } else {
-      categoryMutation.mutate({ 
-        name: formName, 
-        type_id: selectedType.id 
-      });
+      // This block can be removed since we no longer support individual category creation
     }
   };
 
@@ -360,17 +427,15 @@ export function ClassificationAdmin() {
         <Group justify="flex-end">
           <TableActions
             elementType="icon"
-            onEdit={() => {
-              setEditCategory(category);
-              setFormName(category.name);
-            }}
             onDelete={() => {
               openDeleteConfirmModal(
                 'Category',
                 category.name,
-                () => categoryDeleteMutation.mutate(category.id)
+                () => categoryDeleteMutation.mutate({ categoryId: category.id, typeId: selectedType!.id })
               );
             }}
+            hideEdit
+            onEdit={() => {}}
           />
         </Group>
       </Table.Td>
@@ -507,6 +572,8 @@ export function ClassificationAdmin() {
                       onClick={() => {
                         setFormName('');
                         setIsAddingCategory(true);
+                        const currentCategoryIds = categories?.map(c => c.id.toString()) || [];
+                        setSelectedCategories(currentCategoryIds);
                       }}
                       style={{
                         position: 'absolute',
@@ -514,7 +581,7 @@ export function ClassificationAdmin() {
                         top: 'var(--mantine-spacing-sm)'
                       }}
                     >
-                      Add Category
+                      Manage Categories
                     </Button>
                   )}
                 </Group>
@@ -607,41 +674,160 @@ export function ClassificationAdmin() {
         </Stack>
       </Modal>
 
-      <Modal 
-        opened={!!editCategory || isAddingCategory} 
+      <Modal
+        opened={isAddingCategory}
         onClose={() => {
-          setEditCategory(null);
           setIsAddingCategory(false);
-          setFormName('');
+          setSelectedCategories([]);
         }}
-        title={editCategory ? 'Edit Category' : 'Add Category'}
-        overlayProps={{ fixed: true }}
-        keepMounted={false}
+        title="Add Categories"
+        size="lg"
+        styles={{
+          title: {
+            fontSize: '1.2rem',
+            fontWeight: 600
+          },
+          body: {
+            paddingTop: 0,
+            paddingBottom: 'var(--mantine-spacing-xs)'
+          },
+          header: {
+            paddingBottom: 'var(--mantine-spacing-xs)'
+          },
+          inner: {
+            padding: 'var(--mantine-spacing-xs)'
+          }
+        }}
+        centered
       >
         <Stack>
-          <TextInput
-            label="Category Name"
-            value={formName}
-            onChange={(e) => setFormName(e.target.value)}
-          />
-          <Group justify="flex-end">
-            <Button
-              variant="light"
-              onClick={() => {
-                setEditCategory(null);
-                setIsAddingCategory(false);
-                setFormName('');
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCategorySubmit}
-              disabled={!formName.trim()}
-            >
-              {editCategory ? 'Save' : 'Create'}
-            </Button>
-          </Group>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            if (selectedType) {
+              categoryMutation.mutate({
+                typeId: selectedType.id,
+                categoryIds: selectedCategories.map(id => parseInt(id))
+              });
+            }
+          }}>
+            {isAddingCategory && (
+              <Stack gap="xs">
+                <Text size="sm" c="dimmed">Select categories to assign to type <Text span fw={600}>{selectedType?.name}</Text></Text>
+                <Box style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
+                  <Group px="xs" py={6}>
+                    <Text size="sm" fw={600} style={{ flex: 1 }}>Category Name</Text>
+                  </Group>
+                </Box>
+                <ScrollArea h={400}>
+                  <Stack gap={4} p="xs">
+                    {categoriesWithSelection.map((category: CategoryWithSelection) => (
+                      <UnstyledButton
+                        key={category.id}
+                        onClick={() => {
+                          const categoryId = category.id.toString();
+                          if (selectedCategories.includes(categoryId)) {
+                            setSelectedCategories(prev => prev.filter(id => id !== categoryId));
+                          } else {
+                            setSelectedCategories(prev => [...prev, categoryId]);
+                          }
+                        }}
+                        style={{
+                          padding: '3px 4px',
+                          borderRadius: theme.radius.sm,
+                          border: `1px solid ${
+                            colorScheme === 'dark' 
+                              ? theme.colors.dark[5] 
+                              : theme.colors.gray[3]
+                          }`,
+                          backgroundColor: selectedCategories.includes(category.id.toString())
+                            ? colorScheme === 'dark'
+                              ? theme.colors.green[9]
+                              : theme.colors.green[0]
+                            : 'transparent',
+                          '&:hover': {
+                            backgroundColor: selectedCategories.includes(category.id.toString())
+                              ? colorScheme === 'dark'
+                                ? theme.colors.green[8]
+                                : theme.colors.green[1]
+                              : colorScheme === 'dark'
+                                ? theme.colors.dark[5]
+                                : theme.colors.gray[0]
+                          },
+                          transition: 'all 500ms ease'
+                        }}
+                      >
+                        <Group gap="xs" style={{ flex: 1 }}>
+                          {selectedCategories.includes(category.id.toString()) ? (
+                            <IconCircleCheck 
+                              size={16} 
+                              style={{ 
+                                color: colorScheme === 'dark' 
+                                  ? theme.colors.green[4]
+                                  : theme.colors.green[6],
+                                strokeWidth: 2.5
+                              }} 
+                            />
+                          ) : (
+                            <IconCircle 
+                              size={16} 
+                              style={{ 
+                                color: colorScheme === 'dark'
+                                  ? theme.colors.dark[3]
+                                  : theme.colors.gray[4],
+                                strokeWidth: 1.5
+                              }} 
+                            />
+                          )}
+                          <Text 
+                            size="sm" 
+                            fw={selectedCategories.includes(category.id.toString()) ? 600 : 500}
+                            c={selectedCategories.includes(category.id.toString())
+                              ? colorScheme === 'dark'
+                                ? 'green.4'
+                                : 'green.7'
+                              : undefined}
+                            style={{ flex: 1 }}
+                          >
+                            {category.name}
+                          </Text>
+                        </Group>
+                      </UnstyledButton>
+                    ))}
+                  </Stack>
+                </ScrollArea>
+                <Group justify="space-between" align="center" pt="xs">
+                  <Text size="sm" c="dimmed">
+                    {selectedCategories.length === 0 
+                      ? "No categories selected" 
+                      : `${selectedCategories.length} ${selectedCategories.length === 1 ? 'category' : 'categories'} selected`
+                    }
+                  </Text>
+                  <Group>
+                    <Button 
+                      variant="default" 
+                      onClick={() => {
+                        setIsAddingCategory(false);
+                        setSelectedCategories([]);
+                      }}
+                      size="sm"
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit"
+                      size="sm"
+                      color="green"
+                    >
+                      Save Changes
+                    </Button>
+                  </Group>
+                </Group>
+                {categoriesWithSelection.length === 0 && (
+                  <Text c="dimmed" ta="center" fz="sm">No categories available</Text>
+                )}
+              </Stack>
+            )}
+          </form>
         </Stack>
       </Modal>
     </>

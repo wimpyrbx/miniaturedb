@@ -102,7 +102,9 @@ const FloatingDiv = () => {
           setColorScheme(settings.colormode as 'light' | 'dark');
         }
         if (settings.colortheme) {
-          const savedTheme = themes.find(t => t.label === settings.colortheme);
+          const savedTheme = themes.find(t => 
+            t.label.replace(/^[^\w\s]+ /, '').toLowerCase() === settings.colortheme
+          );
           if (savedTheme) {
             setCurrentTheme(savedTheme);
           }
@@ -116,7 +118,7 @@ const FloatingDiv = () => {
     };
 
     loadInitialSettings();
-  }, []);  // Empty dependency array means this runs once on mount
+  }, [setColorScheme]);  // Add setColorScheme to dependency array since we're using it
 
   // Dragging logic
   const handleMouseDown = (e: MouseEvent) => {
@@ -181,9 +183,11 @@ const FloatingDiv = () => {
     window.dispatchEvent(new CustomEvent('theme-change', { detail: selectedTheme }));
 
     try {
+      // Extract theme name by removing emoji and converting to lowercase
+      const themeName = selectedTheme.label.replace(/^[^\w\s]+ /, '').toLowerCase();
       await api.put('/api/settings', {
         setting_key: 'colortheme',
-        setting_value: selectedTheme.label
+        setting_value: themeName
       });
     } catch (error) {
       console.error('Failed to save theme setting:', error);

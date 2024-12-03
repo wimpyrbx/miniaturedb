@@ -69,6 +69,7 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
 export default function App() {
   const [theme, setTheme] = useState<Theme>(themes[0]);
   const [style, setStyle] = useState(defaultStyle);
+  const [colorScheme, setColorScheme] = useState<'light' | 'dark'>('light');
   const [authState, setAuthState] = useState<AuthState>({
     authenticated: false,
     loading: true
@@ -104,12 +105,19 @@ export default function App() {
       setStyle(customEvent.detail === 'default' ? defaultStyle : compactStyle);
     };
 
+    const handleColorSchemeChange = (event: Event) => {
+      const customEvent = event as CustomEvent<'light' | 'dark'>;
+      setColorScheme(customEvent.detail);
+    };
+
     window.addEventListener('theme-change', handleThemeChange);
     window.addEventListener('style-change', handleStyleChange);
+    window.addEventListener('color-scheme-change', handleColorSchemeChange);
 
     return () => {
       window.removeEventListener('theme-change', handleThemeChange);
       window.removeEventListener('style-change', handleStyleChange);
+      window.removeEventListener('color-scheme-change', handleColorSchemeChange);
     };
   }, []);
 
@@ -196,7 +204,8 @@ export default function App() {
     <MantineProvider
       theme={{
         ...theme.mantineTheme,
-        ...style
+        ...style,
+        colorScheme
       }}
     >
       {appContent}

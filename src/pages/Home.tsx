@@ -1,5 +1,8 @@
 import { Title, Text, Stack, Card, SimpleGrid, ThemeIcon } from '@mantine/core';
 import { IconDatabase, IconPalette, IconLock, IconServer } from '@tabler/icons-react';
+import { useEffect } from 'react';
+import { getSettings } from '../api/settings/get';
+import { themes } from '../components/themes/themeselect';
 
 const features = [
   {
@@ -25,6 +28,44 @@ const features = [
 ];
 
 export function Home() {
+  useEffect(() => {
+    const loadUserSettings = async () => {
+      try {
+        const settings = await getSettings();
+        
+        // Apply color mode
+        if (settings.colormode) {
+          window.dispatchEvent(new CustomEvent('color-scheme-change', { 
+            detail: settings.colormode 
+          }));
+        }
+
+        // Apply theme
+        if (settings.colortheme) {
+          const selectedTheme = themes.find(t => 
+            t.label.replace(/^[^\w\s]+ /, '').toLowerCase() === settings.colortheme
+          );
+          if (selectedTheme) {
+            window.dispatchEvent(new CustomEvent('theme-change', { 
+              detail: selectedTheme 
+            }));
+          }
+        }
+
+        // Apply style
+        if (settings.styletheme) {
+          window.dispatchEvent(new CustomEvent('style-change', { 
+            detail: settings.styletheme as 'default' | 'compact'
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to load user settings:', error);
+      }
+    };
+
+    loadUserSettings();
+  }, []);
+
   return (
     <Stack gap="xl" p="md">
       <div>

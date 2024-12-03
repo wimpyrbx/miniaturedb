@@ -465,7 +465,14 @@ app.put('/api/classification/categories/:id', requireAuth, (req, res) => {
 app.delete('/api/classification/categories/:id', requireAuth, (req, res) => {
   try {
     const { id } = req.params;
-    minisDb.prepare('DELETE FROM mini_categories WHERE id = ?').run(id);
+    const deleteCategory = minisDb.transaction((categoryId) => {
+      // First delete all relationships
+      minisDb.prepare('DELETE FROM type_to_categories WHERE category_id = ?').run(categoryId);
+      // Then delete the category
+      minisDb.prepare('DELETE FROM mini_categories WHERE id = ?').run(categoryId);
+    });
+    
+    deleteCategory(id);
     res.status(204).send();
   } catch (error) {
     console.error('Error deleting category:', error);
@@ -486,6 +493,84 @@ app.get('/api/classification/type-categories', requireAuth, (_req, res) => {
   } catch (error) {
     console.error('Error fetching type-category relationships:', error);
     res.status(500).json({ error: 'Failed to fetch type-category relationships' });
+  }
+});
+
+app.post('/api/classification/type-categories', requireAuth, (req, res) => {
+  try {
+    const { type_id, category_id } = req.body;
+    
+    // Check if relationship already exists
+    const existing = minisDb.prepare(
+      'SELECT * FROM type_to_categories WHERE type_id = ? AND category_id = ?'
+    ).get(type_id, category_id);
+
+    if (existing) {
+      res.status(400).json({ error: 'This category is already assigned to this type' });
+      return;
+    }
+
+    // Create the relationship
+    minisDb.prepare(
+      'INSERT INTO type_to_categories (type_id, category_id) VALUES (?, ?)'
+    ).run(type_id, category_id);
+
+    // Return the category details
+    const category = minisDb.prepare(
+      'SELECT * FROM mini_categories WHERE id = ?'
+    ).get(category_id);
+
+    res.json(category);
+  } catch (error) {
+    console.error('Error creating type-category relationship:', error);
+    res.status(500).json({ error: 'Failed to create type-category relationship' });
+  }
+});
+
+app.get('/api/classification/categories', requireAuth, (_req, res) => {
+  try {
+    const categories = minisDb.prepare('SELECT * FROM mini_categories ORDER BY name').all();
+    res.json(categories);
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    res.status(500).json({ error: 'Failed to fetch categories' });
+  }
+});
+
+// Add new endpoint for managing type-category assignments
+app.put('/api/classification/types/:id/categories', requireAuth, (req, res) => {
+  try {
+    const { id: typeId } = req.params;
+    const { categoryIds } = req.body;
+
+    const updateAssignments = minisDb.transaction((typeId: number, categoryIds: number[]) => {
+      // First delete all existing assignments for this type
+      minisDb.prepare('DELETE FROM type_to_categories WHERE type_id = ?').run(typeId);
+      
+      // Then add the new assignments
+      const insertStmt = minisDb.prepare(
+        'INSERT INTO type_to_categories (type_id, category_id) VALUES (?, ?)'
+      );
+      
+      for (const categoryId of categoryIds) {
+        insertStmt.run(typeId, categoryId);
+      }
+      
+      // Return the updated category list
+      return minisDb.prepare(`
+        SELECT mc.* 
+        FROM mini_categories mc
+        JOIN type_to_categories ttc ON mc.id = ttc.category_id
+        WHERE ttc.type_id = ?
+        ORDER BY mc.name
+      `).all(typeId);
+    });
+    
+    const updatedCategories = updateAssignments(parseInt(typeId), categoryIds);
+    res.json(updatedCategories);
+  } catch (error) {
+    console.error('Error updating type categories:', error);
+    res.status(500).json({ error: 'Failed to update type categories' });
   }
 });
 
