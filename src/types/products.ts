@@ -18,4 +18,5 @@ export interface ProductSet {
   id: number;
   name: string;
   product_line_id: number;
+  mini_count?: number;
 }

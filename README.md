@@ -5,7 +5,7 @@ A modern database management system with a beautiful user interface.
 ## Quick Start
 ```bash
 npm install
-npm run dev    # Runs frontend (localhost:5173) and backend (localhost:3000)
+npm run dev    # Runs frontend (localhost:5173) and backend (localhost:3001)
 ```
 
 ## Project Structure

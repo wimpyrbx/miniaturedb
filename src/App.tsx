@@ -1,6 +1,7 @@
 import '@mantine/core/styles.css';
 import './styles/global.css';
 import { AppShell, MantineProvider, Loader, Center } from '@mantine/core';
+import { ModalsProvider } from '@mantine/modals';
 import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { SideBar } from './components/layout/sidebar/SideBar';
 import { Login } from './pages/Login';
@@ -12,12 +13,14 @@ import api from './api/client';
 import { defaultStyle } from './components/themes/styleselect/default';
 import { compactStyle } from './components/themes/styleselect/compact';
 import FloatingDiv from './components/FloatingDiv';
-import { Products } from './pages/Products';
+import Products from './pages/Products';
 import { ProductAdmin } from './pages/ProductAdmin';
+import { UIExamples } from './pages/UIExamples';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Notifications } from '@mantine/notifications';
 import { checkAuth } from './api/client';
 import { useMantineColorScheme } from '@mantine/core';
+import { themeOverrides } from './lib/theme-overrides';
 
 interface AuthState {
   authenticated: boolean;
@@ -63,152 +66,131 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function AppContent() {
-  const [auth, setAuth] = useState<AuthState>({ loading: true, authenticated: false });
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
-  const { setColorScheme } = useMantineColorScheme();
-  const navigate = useNavigate();
+export default function App() {
+  const [theme, setTheme] = useState<Theme>(themes[0]);
+  const [style, setStyle] = useState(defaultStyle);
+  const [authState, setAuthState] = useState<AuthState>({
+    authenticated: false,
+    loading: true
+  });
 
   useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const response = await api.get<UserSettings>('/api/settings');
-        const settings = response.data;
-
-        // Apply color mode
-        setColorScheme(settings.colormode);
-
-        // Find and apply theme
-        const selectedTheme = themes.find(t => t.label === settings.colortheme);
-        if (selectedTheme) {
-          window.dispatchEvent(new CustomEvent('theme-change', { detail: selectedTheme }));
-        }
-
-        // Apply style theme
-        window.dispatchEvent(new CustomEvent('style-change', { 
-          detail: settings.styletheme as 'default' | 'compact' 
-        }));
-
-        setSettingsLoaded(true);
-      } catch (error) {
-        console.error('Error loading settings:', error);
-        setSettingsLoaded(true); // Continue with defaults if settings fail to load
-      }
-    };
-
-    const checkAuthStatus = async () => {
+    const checkAuthentication = async () => {
       try {
         const response = await checkAuth();
-        setAuth({ authenticated: response.authenticated, loading: false });
-        if (response.authenticated) {
-          await loadSettings();
-        } else if (window.location.pathname !== '/login') {
-          navigate('/login');
-        }
+        setAuthState({
+          authenticated: response.authenticated,
+          loading: false
+        });
       } catch (error) {
-        console.error('Auth check failed:', error);
-        setAuth({ authenticated: false, loading: false });
-        navigate('/login');
+        setAuthState({
+          authenticated: false,
+          loading: false
+        });
       }
     };
 
-    checkAuthStatus();
-  }, [navigate]);
-
-  if (auth.loading || (auth.authenticated && !settingsLoaded)) {
-    return (
-      <Center style={{ height: '100vh' }}>
-        <Loader size="xl" />
-      </Center>
-    );
-  }
-
-  if (!auth.authenticated) {
-    return <Login onLogin={() => setAuth({ loading: false, authenticated: true })} />;
-  }
-
-  return (
-    <AuthenticatedLayout>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/products" element={<Products />} />
-        <Route path="/product-admin" element={<ProductAdmin />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-      <FloatingDiv />
-    </AuthenticatedLayout>
-  );
-}
-
-// Create a client
-const queryClient = new QueryClient();
-
-export default function App() {
-  const [currentTheme, setCurrentTheme] = useState(themes[0]);
-  const [currentStyle, setCurrentStyle] = useState<'default' | 'compact'>('default');
+    checkAuthentication();
+  }, []);
 
   useEffect(() => {
-    const handleThemeChange = (event: CustomEvent<Theme>) => {
-      setCurrentTheme(event.detail);
+    const handleThemeChange = (event: Event) => {
+      const customEvent = event as CustomEvent<Theme>;
+      setTheme(customEvent.detail);
     };
 
-    const handleStyleChange = (event: CustomEvent<'default' | 'compact'>) => {
-      setCurrentStyle(event.detail);
+    const handleStyleChange = (event: Event) => {
+      const customEvent = event as CustomEvent<'default' | 'compact'>;
+      setStyle(customEvent.detail === 'default' ? defaultStyle : compactStyle);
     };
 
-    window.addEventListener('theme-change', handleThemeChange as EventListener);
-    window.addEventListener('style-change', handleStyleChange as EventListener);
+    window.addEventListener('theme-change', handleThemeChange);
+    window.addEventListener('style-change', handleStyleChange);
+
     return () => {
-      window.removeEventListener('theme-change', handleThemeChange as EventListener);
-      window.removeEventListener('style-change', handleStyleChange as EventListener);
+      window.removeEventListener('theme-change', handleThemeChange);
+      window.removeEventListener('style-change', handleStyleChange);
     };
   }, []);
 
-  const combinedTheme = useMemo(() => {
-    const style = currentStyle === 'compact' ? compactStyle : defaultStyle;
-    return {
-      ...currentTheme.mantineTheme,
-      components: {
-        ...currentTheme.mantineTheme.components,
-        ...style.components,
-      },
-      spacing: {
-        ...currentTheme.mantineTheme.spacing,
-        ...style.spacing,
-      },
-      radius: {
-        ...currentTheme.mantineTheme.radius,
-        ...style.radius,
-      },
-      shadows: {
-        ...currentTheme.mantineTheme.shadows,
-        ...style.shadows,
-      }
-    };
-  }, [currentTheme, currentStyle]);
+  const queryClient = useMemo(() => new QueryClient(), []);
+
+  const appContent = authState.loading ? (
+    <Center style={{ width: '100vw', height: '100vh' }}>
+      <Loader size="xl" />
+    </Center>
+  ) : (
+    <ModalsProvider>
+      <Notifications />
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <Routes>
+            <Route 
+              path="/login" 
+              element={
+                authState.authenticated ? (
+                  <Navigate to="/" replace />
+                ) : (
+                  <Login onLogin={() => setAuthState({ authenticated: true, loading: false })} />
+                )
+              } 
+            />
+            <Route 
+              path="/" 
+              element={
+                authState.authenticated ? (
+                  <AuthenticatedLayout><Home /></AuthenticatedLayout>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              } 
+            />
+            <Route 
+              path="/products" 
+              element={
+                authState.authenticated ? (
+                  <AuthenticatedLayout><Products /></AuthenticatedLayout>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              } 
+            />
+            <Route 
+              path="/product-admin" 
+              element={
+                authState.authenticated ? (
+                  <AuthenticatedLayout><ProductAdmin /></AuthenticatedLayout>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              } 
+            />
+            <Route 
+              path="/ui-examples" 
+              element={
+                authState.authenticated ? (
+                  <AuthenticatedLayout><UIExamples /></AuthenticatedLayout>
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              } 
+            />
+          </Routes>
+          <FloatingDiv />
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ModalsProvider>
+  );
 
   return (
     <MantineProvider
       theme={{
-        ...combinedTheme,
-        components: {
-          ...combinedTheme.components,
-          Button: {
-            styles: {
-              root: {
-              },
-            },
-          },
-        },
+        ...theme.mantineTheme,
+        ...style,
+        ...themeOverrides
       }}
-      defaultColorScheme="dark"
     >
-      <QueryClientProvider client={queryClient}>
-        <Notifications />
-        <BrowserRouter>
-          <AppContent />
-        </BrowserRouter>
-      </QueryClientProvider>
+      {appContent}
     </MantineProvider>
   );
 }

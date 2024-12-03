@@ -1,5 +1,5 @@
 import { UnstyledButton, Group, Text, AppShell, Stack, Button } from '@mantine/core';
-import { IconLogout, IconHome, IconPackage, IconSettings } from '@tabler/icons-react';
+import { IconLogout, IconHome, IconPackage, IconSettings, IconPalette } from '@tabler/icons-react';
 import { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -84,6 +84,10 @@ export function SideBar({ onLogout }: { onLogout?: () => void }) {
     { link: '/product-admin', label: 'Product Admin', icon: IconSettings },
   ];
 
+  const testPages = [
+    { link: '/ui-examples', label: 'UI Examples', icon: IconPalette },
+  ];
+
   return (
     <AppShell.Navbar 
       style={{ 
@@ -97,6 +101,17 @@ export function SideBar({ onLogout }: { onLogout?: () => void }) {
         <div style={styles.mainContent}>
           <MenuGroup label="Navigation" icon={<IconHome size={16} />}>
             {items.map((item) => (
+              <MenuItem 
+                key={item.link} 
+                label={item.label} 
+                icon={item.icon}
+                onClick={() => navigate(item.link)} 
+              />
+            ))}
+          </MenuGroup>
+
+          <MenuGroup label="Test Pages" icon={<IconPalette size={16} />}>
+            {testPages.map((item) => (
               <MenuItem 
                 key={item.link} 
                 label={item.label} 

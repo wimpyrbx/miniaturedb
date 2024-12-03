@@ -93,8 +93,9 @@ app.get('/api/health', requireAuth, (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Companies endpoints
-app.get('/api/companies', requireAuth, (_req, res) => {
+// Product Info endpoints
+// Companies
+app.get('/api/productinfo/companies', requireAuth, (_req, res) => {
   try {
     const companies = minisDb.prepare('SELECT * FROM production_companies ORDER BY name').all();
     res.json(companies);
@@ -104,23 +105,58 @@ app.get('/api/companies', requireAuth, (_req, res) => {
   }
 });
 
-app.get('/api/companies/:id', requireAuth, (req, res) => {
+app.post('/api/productinfo/companies', requireAuth, (req, res) => {
   try {
-    const company = minisDb.prepare('SELECT * FROM production_companies WHERE id = ?').get(req.params.id);
-    if (company) {
-      res.json(company);
+    const { name } = req.body;
+    const result = minisDb.prepare(
+      'INSERT INTO production_companies (name) VALUES (?) RETURNING *'
+    ).get(name);
+    res.json(result);
+  } catch (error) {
+    console.error('Error creating company:', error);
+    res.status(500).json({ error: 'Failed to create company' });
+  }
+});
+
+app.put('/api/productinfo/companies/:id', requireAuth, (req, res) => {
+  try {
+    const { name } = req.body;
+    const { id } = req.params;
+    const result = minisDb.prepare(
+      'UPDATE production_companies SET name = ? WHERE id = ? RETURNING *'
+    ).get(name, id);
+    if (result) {
+      res.json(result);
     } else {
       res.status(404).json({ error: 'Company not found' });
     }
   } catch (error) {
-    console.error('Error fetching company:', error);
-    res.status(500).json({ error: 'Failed to fetch company' });
+    console.error('Error updating company:', error);
+    res.status(500).json({ error: 'Failed to update company' });
   }
 });
 
-app.get('/api/companies/:id/lines', requireAuth, (req, res) => {
+app.delete('/api/productinfo/companies/:id', requireAuth, (req, res) => {
   try {
-    const lines = minisDb.prepare('SELECT * FROM product_lines WHERE company_id = ? ORDER BY name').all(req.params.id);
+    const { id } = req.params;
+    const result = minisDb.prepare('DELETE FROM production_companies WHERE id = ?').run(id);
+    if (result.changes > 0) {
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: 'Company not found' });
+    }
+  } catch (error) {
+    console.error('Error deleting company:', error);
+    res.status(500).json({ error: 'Failed to delete company' });
+  }
+});
+
+// Product Lines
+app.get('/api/productinfo/companies/:id/lines', requireAuth, (req, res) => {
+  try {
+    const lines = minisDb.prepare(
+      'SELECT * FROM product_lines WHERE company_id = ? ORDER BY name'
+    ).all(req.params.id);
     res.json(lines);
   } catch (error) {
     console.error('Error fetching product lines:', error);
@@ -128,13 +164,113 @@ app.get('/api/companies/:id/lines', requireAuth, (req, res) => {
   }
 });
 
-app.get('/api/product-lines/:id/sets', requireAuth, (req, res) => {
+app.post('/api/productinfo/lines', requireAuth, (req, res) => {
   try {
-    const sets = minisDb.prepare('SELECT * FROM product_sets WHERE product_line_id = ? ORDER BY name').all(req.params.id);
+    const { name, company_id } = req.body;
+    const result = minisDb.prepare(
+      'INSERT INTO product_lines (name, company_id) VALUES (?, ?) RETURNING *'
+    ).get(name, company_id);
+    res.json(result);
+  } catch (error) {
+    console.error('Error creating product line:', error);
+    res.status(500).json({ error: 'Failed to create product line' });
+  }
+});
+
+app.put('/api/productinfo/lines/:id', requireAuth, (req, res) => {
+  try {
+    const { name } = req.body;
+    const { id } = req.params;
+    const result = minisDb.prepare(
+      'UPDATE product_lines SET name = ? WHERE id = ? RETURNING *'
+    ).get(name, id);
+    if (result) {
+      res.json(result);
+    } else {
+      res.status(404).json({ error: 'Product line not found' });
+    }
+  } catch (error) {
+    console.error('Error updating product line:', error);
+    res.status(500).json({ error: 'Failed to update product line' });
+  }
+});
+
+app.delete('/api/productinfo/lines/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = minisDb.prepare('DELETE FROM product_lines WHERE id = ?').run(id);
+    if (result.changes > 0) {
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: 'Product line not found' });
+    }
+  } catch (error) {
+    console.error('Error deleting product line:', error);
+    res.status(500).json({ error: 'Failed to delete product line' });
+  }
+});
+
+// Product Sets
+app.get('/api/productinfo/lines/:id/sets', requireAuth, (req, res) => {
+  try {
+    const sets = minisDb.prepare(`
+      SELECT 
+        ps.*,
+        (SELECT COUNT(*) FROM minis WHERE product_set_id = ps.id) as mini_count
+      FROM product_sets ps
+      WHERE product_line_id = ?
+      ORDER BY name
+    `).all(req.params.id);
     res.json(sets);
   } catch (error) {
     console.error('Error fetching product sets:', error);
     res.status(500).json({ error: 'Failed to fetch product sets' });
+  }
+});
+
+app.post('/api/productinfo/sets', requireAuth, (req, res) => {
+  try {
+    const { name, product_line_id } = req.body;
+    const result = minisDb.prepare(
+      'INSERT INTO product_sets (name, product_line_id) VALUES (?, ?) RETURNING *'
+    ).get(name, product_line_id);
+    res.json(result);
+  } catch (error) {
+    console.error('Error creating product set:', error);
+    res.status(500).json({ error: 'Failed to create product set' });
+  }
+});
+
+app.put('/api/productinfo/sets/:id', requireAuth, (req, res) => {
+  try {
+    const { name } = req.body;
+    const { id } = req.params;
+    const result = minisDb.prepare(
+      'UPDATE product_sets SET name = ? WHERE id = ? RETURNING *'
+    ).get(name, id);
+    if (result) {
+      res.json(result);
+    } else {
+      res.status(404).json({ error: 'Product set not found' });
+    }
+  } catch (error) {
+    console.error('Error updating product set:', error);
+    res.status(500).json({ error: 'Failed to update product set' });
+  }
+});
+
+app.delete('/api/productinfo/sets/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = minisDb.prepare('DELETE FROM product_sets WHERE id = ?').run(id);
+    if (result.changes > 0) {
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: 'Product set not found' });
+    }
+  } catch (error) {
+    console.error('Error deleting product set:', error);
+    res.status(500).json({ error: 'Failed to delete product set' });
   }
 });
 
