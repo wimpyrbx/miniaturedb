@@ -67,9 +67,9 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const [theme, setTheme] = useState<Theme>(themes[0]);
+  const [theme, setTheme] = useState<Theme>(themes.find(t => t.label === '⚫ Graphite') || themes[0]);
   const [style, setStyle] = useState(defaultStyle);
-  const [colorScheme, setColorScheme] = useState<'light' | 'dark'>('light');
+  const [colorScheme, setColorScheme] = useState<'light' | 'dark'>('dark');
   const [authState, setAuthState] = useState<AuthState>({
     authenticated: false,
     loading: true
@@ -83,6 +83,28 @@ export default function App() {
           authenticated: response.authenticated,
           loading: false
         });
+
+        if (response.authenticated) {
+          try {
+            const settings = await getSettings();
+            if (settings.colormode) {
+              setColorScheme(settings.colormode);
+            }
+            if (settings.colortheme) {
+              const selectedTheme = themes.find(t => 
+                t.label.replace(/^[^\w\s]+ /, '').toLowerCase() === settings.colortheme
+              );
+              if (selectedTheme) {
+                setTheme(selectedTheme);
+              }
+            }
+            if (settings.styletheme) {
+              setStyle(settings.styletheme === 'default' ? defaultStyle : compactStyle);
+            }
+          } catch (error) {
+            console.error('Failed to load user settings:', error);
+          }
+        }
       } catch (error) {
         setAuthState({
           authenticated: false,
@@ -95,6 +117,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!authState.authenticated) return;
+
     const handleThemeChange = (event: Event) => {
       const customEvent = event as CustomEvent<Theme>;
       setTheme(customEvent.detail);
@@ -119,7 +143,7 @@ export default function App() {
       window.removeEventListener('style-change', handleStyleChange);
       window.removeEventListener('color-scheme-change', handleColorSchemeChange);
     };
-  }, []);
+  }, [authState.authenticated]);
 
   const queryClient = useMemo(() => new QueryClient(), []);
 
@@ -194,7 +218,7 @@ export default function App() {
               } 
             />
           </Routes>
-          <FloatingDiv />
+          {authState.authenticated && <FloatingDiv />}
         </BrowserRouter>
       </QueryClientProvider>
     </ModalsProvider>

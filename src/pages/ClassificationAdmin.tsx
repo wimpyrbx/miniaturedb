@@ -101,10 +101,11 @@ export function ClassificationAdmin() {
 
       // Group categories by type_id
       const categoriesByType = relationships.reduce((acc: { [key: number]: MiniatureCategory[] }, curr: MiniatureCategory) => {
-        if (!acc[curr.type_id]) {
-          acc[curr.type_id] = [];
+        const typeId = curr.type_id;
+        if (!acc[typeId]) {
+          acc[typeId] = [];
         }
-        acc[curr.type_id].push(curr);
+        acc[typeId].push(curr);
         return acc;
       }, {});
 
@@ -158,7 +159,9 @@ export function ClassificationAdmin() {
       const response = await fetch('/api/classification/categories', { credentials: 'include' });
       if (!response.ok) throw new Error('Failed to fetch all categories');
       return response.json();
-    }
+    },
+    staleTime: 30000, // Keep data fresh for 30 seconds
+    refetchOnMount: true // Force refetch when component mounts
   });
 
   // Filter out categories that are already assigned to the selected type
@@ -232,9 +235,13 @@ export function ClassificationAdmin() {
         (oldData: any) => oldData?.filter((cat: any) => cat.type_id !== variables.typeId) ?? []
       );
       
-      // Force refetch of types to update counts
+      // Force refetch of types and all categories
       queryClient.invalidateQueries({ 
         queryKey: ['miniature_types'],
+        refetchType: 'all'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['all_categories'],
         refetchType: 'all'
       });
 
@@ -388,7 +395,18 @@ export function ClassificationAdmin() {
           cursor: 'pointer',
           backgroundColor: selectedType?.id === type.id ? 'var(--mantine-color-blue-light)' : undefined 
         }}
-        onClick={() => setSelectedType(type)}
+        onClick={() => {
+          // Pre-fetch categories for the selected type
+          const categories = queryClient.getQueryData<MiniatureCategory[]>(['miniature_categories', type.id]);
+          if (!categories) {
+            fetch(`/api/classification/types/${type.id}/categories`, { credentials: 'include' })
+              .then(response => response.json())
+              .then(data => {
+                queryClient.setQueryData(['miniature_categories', type.id], data);
+              });
+          }
+          setSelectedType(type);
+        }}
       >
         <Table.Td>
           {type.name}
@@ -572,8 +590,10 @@ export function ClassificationAdmin() {
                       onClick={() => {
                         setFormName('');
                         setIsAddingCategory(true);
-                        const currentCategoryIds = categories?.map(c => c.id.toString()) || [];
-                        setSelectedCategories(currentCategoryIds);
+                        const currentCategories = queryClient.getQueryData<MiniatureCategory[]>(
+                          ['miniature_categories', selectedType!.id]
+                        ) || [];
+                        setSelectedCategories(currentCategories.map(c => c.id.toString()));
                       }}
                       style={{
                         position: 'absolute',
