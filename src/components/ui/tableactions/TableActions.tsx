@@ -64,12 +64,12 @@ export function TableActions({
 
   if (elementType === 'icon') {
     return (
-      <Group gap="xs">
+      <Group gap="6">
         <ActionIcon 
-          variant="light"
           size={size}
           onClick={onEdit}
           title="Edit item"
+          color="var(--mantine-color-primary-8)"
         >
           <EditIcon size={iconSize} />
         </ActionIcon>
@@ -83,7 +83,7 @@ export function TableActions({
   }
 
   return (
-    <Group gap="xs">
+    <Group gap="6">
       <Button 
         variant="light"
         size={size}

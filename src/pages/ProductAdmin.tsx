@@ -499,13 +499,16 @@ export function ProductAdmin() {
               >
                 <Group justify="space-between" p="sm" style={{ 
                   borderBottom: '1px solid var(--mantine-color-default-border)',
-                  background: 'var(--mantine-color-primary-light)'
+                  background: 'var(--mantine-color-primary-light)',
+                  position: 'relative',
+                  minHeight: 'var(--mantine-spacing-xl)',
+                  alignItems: 'flex-start'
                 }}>
                   <div>
-                    <Title order={2} size="h3">Companies</Title>
+                    <Title order={2} size="h3" mb={5}>Companies</Title>
                     <Stack gap={2}>
                       <Text size="sm" c="dimmed">First select a company below,</Text>
-                      <Text size="sm" c="dimmed">then select one of the product lines.</Text>
+                      <Text size="sm" c="dimmed">then select a product line in table to the right.</Text>
                     </Stack>
                   </div>
                   <Button 
@@ -551,13 +554,15 @@ export function ProductAdmin() {
                   border: '1px solid var(--mantine-color-primary-light)'
                 }}
               >
-                <Group justify="space-between" align="flex-start" p="sm" style={{ 
+                <Group justify="space-between" p="sm" style={{ 
                   borderBottom: '1px solid var(--mantine-color-default-border)',
                   background: 'var(--mantine-color-primary-light)',
-                  position: 'relative'
+                  position: 'relative',
+                  minHeight: 'var(--mantine-spacing-xl)',
+                  alignItems: 'flex-start'
                 }}>
                   <div>
-                    <Title order={2} size="h3" mb={selectedCompany ? 5 : 0}>Product Lines</Title>
+                    <Title order={2} size="h3" mb={5}>Product Lines</Title>
                     <Stack gap={2}>
                       {selectedCompany ? (
                         <>
@@ -626,12 +631,15 @@ export function ProductAdmin() {
                   border: '1px solid var(--mantine-color-primary-light)'
                 }}
               >
-                <Group justify="space-between" align="flex-start" p="sm" style={{ 
+                <Group justify="space-between" p="sm" style={{ 
                   borderBottom: '1px solid var(--mantine-color-default-border)',
-                  background: 'var(--mantine-color-primary-light)'
+                  background: 'var(--mantine-color-primary-light)',
+                  position: 'relative',
+                  minHeight: 'var(--mantine-spacing-xl)',
+                  alignItems: 'flex-start'
                 }}>
                   <div>
-                    <Title order={2} size="h3" mb={selectedLine ? 5 : 0}>Product Sets</Title>
+                    <Title order={2} size="h3" mb={5}>Product Sets</Title>
                     {selectedLine ? (
                       <Stack gap={2}>
                         <Text size="sm" c="dimmed">
@@ -643,12 +651,8 @@ export function ProductAdmin() {
                       </Stack>
                     ) : (
                       <Stack gap={2}>
-                        <Text size="sm" c="dimmed">
-                          To be able to see any product set you must select
-                        </Text>
-                        <Text size="sm" c="dimmed">
-                          both a company and one of it's product line.
-                        </Text>
+                        <Text size="sm" c="dimmed">To be able to see any product set you must select</Text>
+                        <Text size="sm" c="dimmed">both a company and one of it's product line.</Text>
                       </Stack>
                     )}
                   </div>
