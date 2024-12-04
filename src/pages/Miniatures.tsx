@@ -109,24 +109,26 @@ const PillsList = ({
         </Badge>
       ))}
       {hasMore && !isExpanded && (
-        <Text 
-          size="sm" 
-          c="dimmed" 
+        <Badge
+          variant="outline"
+          color="gray"
+          size="sm"
           style={{ cursor: 'pointer' }}
           onClick={() => setIsExpanded(true)}
         >
           +{remaining} more
-        </Text>
+        </Badge>
       )}
       {isExpanded && hasMore && (
-        <Text 
-          size="sm" 
-          c="dimmed" 
+        <Badge
+          variant="outline"
+          color="gray"
+          size="sm"
           style={{ cursor: 'pointer' }}
           onClick={() => setIsExpanded(false)}
         >
           Show less
-        </Text>
+        </Badge>
       )}
     </Group>
   );
@@ -205,15 +207,6 @@ const TableView = ({ minis, onEdit, currentPage, onPageChange }: {
         </Stack>
       </Table.Td>
       <Table.Td>
-        {mini.description ? (
-          <Text size="sm" c="dimmed" style={{ fontStyle: 'italic' }}>
-            {mini.description}
-          </Text>
-        ) : (
-          <Text c="dimmed">-</Text>
-        )}
-      </Table.Td>
-      <Table.Td>
         <Stack gap="xs">
           <PillsList 
             items={mini.types} 
@@ -232,14 +225,27 @@ const TableView = ({ minis, onEdit, currentPage, onPageChange }: {
           color="pink"
         />
       </Table.Td>
-      <Table.Td style={{ width: '120px' }}>
-        <Text>{mini.location}</Text>
-      </Table.Td>
-      <Table.Td style={{ width: '120px' }}>
-        <Text>{mini.painted_by_name ? mini.painted_by_name.charAt(0).toUpperCase() + mini.painted_by_name.slice(1) : '-'}</Text>
-      </Table.Td>
-      <Table.Td style={{ width: '100px' }}>
-        <Text>{mini.base_size_name ? mini.base_size_name.charAt(0).toUpperCase() + mini.base_size_name.slice(1) : '-'}</Text>
+      <Table.Td style={{ width: '250px' }}>
+        <Stack gap={2}>
+          <Group gap="xs" align="center">
+            <Text size="xs" fw={500} c="dimmed">Location:</Text>
+            <Text size="xs" fw={500} c="primary.4">{mini.location}</Text>
+          </Group>
+          <Group gap="xs" align="center">
+            <Text size="xs" fw={500} c="dimmed">Painted By:</Text>
+            <Text size="xs" fw={500} c="primary.4">
+              {mini.painted_by_name ? mini.painted_by_name.charAt(0).toUpperCase() + mini.painted_by_name.slice(1) : '-'}
+            </Text>
+          </Group>
+          <Group gap="xs" align="center">
+            <Text size="xs" fw={500} c="dimmed">Base Size:</Text>
+            <Text size="xs" fw={500} c="primary.4">
+              {mini.base_size_name 
+                ? mini.base_size_name.charAt(0).toUpperCase() + mini.base_size_name.slice(1).toLowerCase() 
+                : '-'}
+            </Text>
+          </Group>
+        </Stack>
       </Table.Td>
       <Table.Td style={{ width: '70px', padding: 'var(--mantine-spacing-xs)' }}>
         <Group justify="flex-end" wrap="nowrap">
@@ -301,20 +307,6 @@ const TableView = ({ minis, onEdit, currentPage, onPageChange }: {
         </Stack>
       )
     },
-    {
-      key: 'description',
-      label: 'Description',
-      filterable: true,
-      render: (mini: Mini) => (
-        mini.description ? (
-          <Text size="sm" c="dimmed" style={{ fontStyle: 'italic' }}>
-            {mini.description}
-          </Text>
-        ) : (
-          <Text c="dimmed">-</Text>
-        )
-      )
-    },
     { 
       key: 'classifications', 
       label: 'Classifications', 
@@ -345,30 +337,31 @@ const TableView = ({ minis, onEdit, currentPage, onPageChange }: {
       )
     },
     { 
-      key: 'location', 
-      label: 'Location', 
-      width: 120,
+      key: 'information', 
+      label: 'Information', 
+      width: 250,
       filterable: true,
       render: (mini: Mini) => (
-        <Text>{mini.location}</Text>
-      )
-    },
-    { 
-      key: 'painted_by', 
-      label: 'Painted By', 
-      width: 120,
-      filterable: true,
-      render: (mini: Mini) => (
-        <Text>{mini.painted_by_name ? mini.painted_by_name.charAt(0).toUpperCase() + mini.painted_by_name.slice(1) : '-'}</Text>
-      )
-    },
-    { 
-      key: 'base_size', 
-      label: 'Base Size', 
-      width: 100,
-      filterable: true,
-      render: (mini: Mini) => (
-        <Text>{mini.base_size_name ? mini.base_size_name.charAt(0).toUpperCase() + mini.base_size_name.slice(1) : '-'}</Text>
+        <Stack gap={2}>
+          <Group gap="xs" align="center">
+            <Text size="xs" fw={500} c="dimmed">Location:</Text>
+            <Text size="xs" fw={500} c="primary.4">{mini.location}</Text>
+          </Group>
+          <Group gap="xs" align="center">
+            <Text size="xs" fw={500} c="dimmed">Painted By:</Text>
+            <Text size="xs" fw={500} c="primary.4">
+              {mini.painted_by_name ? mini.painted_by_name.charAt(0).toUpperCase() + mini.painted_by_name.slice(1) : '-'}
+            </Text>
+          </Group>
+          <Group gap="xs" align="center">
+            <Text size="xs" fw={500} c="dimmed">Base Size:</Text>
+            <Text size="xs" fw={500} c="primary.4">
+              {mini.base_size_name 
+                ? mini.base_size_name.charAt(0).toUpperCase() + mini.base_size_name.slice(1).toLowerCase() 
+                : '-'}
+            </Text>
+          </Group>
+        </Stack>
       )
     },
     { 
@@ -414,22 +407,23 @@ const CardsView = ({ minis, onEdit, currentPage, onPageChange }: {
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(5, 1fr)',
-        gap: 'var(--mantine-spacing-md)'
+        gap: 'var(--mantine-spacing-xs)'
       }}>
         {paginatedMinis.map(mini => (
           <Card 
             key={mini.id} 
             shadow="sm" 
-            padding="lg"
+            padding="xs"
             withBorder
             style={{
               transition: 'all 200ms ease',
+              position: 'relative'
             }}
             component="div"
             onMouseEnter={(e) => {
               const target = e.currentTarget as HTMLElement;
-              target.style.transform = 'scale(1.05)';
-              target.style.boxShadow = '0 0 20px 0 var(--mantine-color-primary-light)';
+              target.style.transform = 'scale(1.04)';
+              target.style.boxShadow = '0 0 20px 0 var(--mantine-color-primary-dark)';
             }}
             onMouseLeave={(e) => {
               const target = e.currentTarget as HTMLElement;
@@ -437,46 +431,89 @@ const CardsView = ({ minis, onEdit, currentPage, onPageChange }: {
               target.style.boxShadow = 'var(--mantine-shadow-sm)';
             }}
           >
-            <Card.Section>
+            <Card.Section style={{ position: 'relative' }}>
+              <Button 
+                variant="light" 
+                size="xs" 
+                onClick={() => onEdit(mini)}
+                style={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  zIndex: 2,
+                  padding: '4px',
+                  minWidth: 0,
+                  width: '28px',
+                  height: '28px'
+                }}
+              >
+                <IconEdit size={14} />
+              </Button>
               <div style={{ 
                 height: '160px',
                 backgroundColor: 'var(--mantine-color-dark-4)',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                position: 'relative'
               }}>
                 <IconPhoto size={48} style={{ opacity: 0.5 }} />
+                <div style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  padding: '8px',
+                  background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
+                  zIndex: 1
+                }}>
+                  <PillsList 
+                    items={mini.types.filter(type => !type.proxy_type)} 
+                    color="teal"
+                  />
+                </div>
               </div>
             </Card.Section>
-            <Stack gap="xs" mt="md">
-              <Text fw={500}>{mini.name}</Text>
-              <Text size="xs" style={{ fontStyle: 'italic' }}>
-                {[mini.company_name, mini.product_line_name, mini.product_set_name]
-                  .filter(Boolean)
-                  .map((text, index, arr) => (
-                    <React.Fragment key={index}>
-                      <span style={{ color: 'var(--mantine-color-primary-6)', opacity: 0.8 }}>{text}</span>
-                      {index < arr.length - 1 && ' » '}
-                    </React.Fragment>
-                  ))
-                }
-              </Text>
-              <Group gap="xs">
-                <PillsList 
-                  items={mini.types} 
-                  color="blue"
-                  getItemColor={(type) => type.proxy_type ? 'blue' : 'teal'} 
-                />
+            <Stack gap="xs" mt="xs">
+              <Group justify="space-between" align="flex-start">
+                <Text fw={500} size="lg" style={{ lineHeight: 1.1 }}>{mini.name}</Text>
+                <Group gap={4}>
+                  <Text size="xs" c="dimmed" style={{ 
+                    padding: '4px 8px',
+                    border: '1px solid var(--mantine-color-dark-4)',
+                    borderRadius: 'var(--mantine-radius-sm)',
+                    backgroundColor: 'var(--mantine-color-dark-7)',
+                    whiteSpace: 'nowrap',
+                    color: 'var(--mantine-color-primary-4)'
+                  }}>
+                    {mini.base_size_name || 'No Base'}
+                  </Text>
+                </Group>
               </Group>
-              <Group justify="flex-end">
-                <Button 
-                  variant="light" 
-                  size="xs" 
-                  onClick={() => onEdit(mini)}
-                  leftSection={<IconEdit size={14} />}
-                >
-                  Edit
-                </Button>
+
+              {mini.types.some(type => type.proxy_type) && (
+                <PillsList 
+                  items={mini.types.filter(type => type.proxy_type)} 
+                  color="blue"
+                />
+              )}
+
+              {mini.category_names.length > 0 && (
+                <PillsList 
+                  items={mini.category_names} 
+                  color="violet" 
+                />
+              )}
+
+              <Group gap="xs" mt="xs">
+                <Text size="xs" c="var(--mantine-color-primary)">
+                  <Text size="xs" span inherit c="var(--mantine-color-primary-3)" fw={500}>Location:</Text> {mini.location}
+                </Text>
+                {mini.painted_by_name && (
+                  <Text size="xs" c="var(--mantine-color-primary)">
+                    <Text size="xs" span inherit c="var(--mantine-color-primary-3)" fw={500}>Painted by:</Text> {mini.painted_by_name}
+                  </Text>
+                )}
               </Group>
             </Stack>
           </Card>
@@ -502,13 +539,13 @@ const BannerView = ({ minis, onEdit, currentPage, onPageChange }: {
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(2, 1fr)',
-        gap: 'var(--mantine-spacing-md)'
+        gap: 'var(--mantine-spacing-xs)'
       }}>
         {paginatedMinis.map(mini => (
           <Card 
             key={mini.id} 
             shadow="sm" 
-            padding="sm"
+            padding="xs"
             withBorder
             style={{
               transition: 'all 200ms ease',
@@ -516,32 +553,116 @@ const BannerView = ({ minis, onEdit, currentPage, onPageChange }: {
             component="div"
             onMouseEnter={(e) => {
               const target = e.currentTarget as HTMLElement;
-              target.style.transform = 'scale(1.05)';
+              target.style.transform = 'scale(1.02)';
+              target.style.zIndex = '100';
               target.style.boxShadow = '0 0 20px 0 var(--mantine-color-primary-light)';
             }}
             onMouseLeave={(e) => {
               const target = e.currentTarget as HTMLElement;
               target.style.transform = 'none';
+              target.style.zIndex = '';
               target.style.boxShadow = 'var(--mantine-shadow-sm)';
             }}
           >
-            <Group wrap="nowrap" align="flex-start">
+            <Group wrap="nowrap" align="flex-start" gap="sm">
+              {/* Image Section */}
               <div style={{ 
-                width: '100px',
-                height: '100px',
+                width: '120px',
+                height: '120px',
                 backgroundColor: 'var(--mantine-color-dark-4)',
                 borderRadius: 'var(--mantine-radius-sm)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                flexShrink: 0
+                flexShrink: 0,
+                position: 'relative'
               }}>
+                <Button 
+                  variant="light" 
+                  size="xs" 
+                  onClick={() => onEdit(mini)}
+                  style={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    zIndex: 2,
+                    padding: '4px',
+                    minWidth: 0,
+                    width: '28px',
+                    height: '28px'
+                  }}
+                >
+                  <IconEdit size={14} />
+                </Button>
                 <IconPhoto size={32} style={{ opacity: 0.5 }} />
+                <div style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  padding: '4px',
+                  background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
+                  zIndex: 1
+                }}>
+                  <PillsList 
+                    items={mini.types.filter(type => !type.proxy_type)} 
+                    color="teal"
+                  />
+                </div>
               </div>
-              <Stack gap="xs" style={{ flex: 1 }}>
-                <div>
-                  <Text fw={500} size="lg">{mini.name}</Text>
-                  <Text size="xs" style={{ fontStyle: 'italic' }}>
+
+              {/* Content Section */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {/* Title and Product Info */}
+                <div style={{ position: 'relative' }}>
+                  <div style={{ 
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    zIndex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 4,
+                    alignItems: 'flex-end'
+                  }}>
+                    <Text size="xs" c="dimmed" style={{ 
+                      padding: '4px 8px',
+                      border: '1px solid var(--mantine-color-dark-4)',
+                      borderRadius: 'var(--mantine-radius-sm)',
+                      backgroundColor: 'var(--mantine-color-dark-7)',
+                      whiteSpace: 'nowrap',
+                      color: 'var(--mantine-color-primary-4)'
+                    }}>
+                      {mini.base_size_name 
+                        ? mini.base_size_name.charAt(0).toUpperCase() + mini.base_size_name.slice(1).toLowerCase() 
+                        : 'No Base'}
+                    </Text>
+                    <Text size="xs" c="dimmed" style={{ 
+                      padding: '4px 8px',
+                      border: '1px solid var(--mantine-color-dark-4)',
+                      borderRadius: 'var(--mantine-radius-sm)',
+                      backgroundColor: 'var(--mantine-color-dark-6)',
+                      whiteSpace: 'nowrap',
+                      color: 'var(--mantine-color-primary-4)'
+                    }}>
+                      {mini.location}
+                    </Text>
+                    {mini.painted_by_name && (
+                      <Text size="xs" c="dimmed" style={{ 
+                        padding: '4px 8px',
+                        border: '1px solid var(--mantine-color-dark-4)',
+                        borderRadius: 'var(--mantine-radius-sm)',
+                        backgroundColor: 'var(--mantine-color-dark-5)',
+                        whiteSpace: 'nowrap',
+                        color: 'var(--mantine-color-primary-4)'
+                      }}>
+                        {mini.painted_by_name}
+                      </Text>
+                    )}
+                  </div>
+
+                  <Text fw={500} size="lg" style={{ lineHeight: 1.1, marginBottom: 6, paddingRight: '150px' }}>{mini.name}</Text>
+                  <Text size="xs" style={{ fontStyle: 'italic', marginBottom: 4 }} lineClamp={1}>
                     {[mini.company_name, mini.product_line_name, mini.product_set_name]
                       .filter(Boolean)
                       .map((text, index, arr) => (
@@ -553,35 +674,37 @@ const BannerView = ({ minis, onEdit, currentPage, onPageChange }: {
                     }
                   </Text>
                 </div>
-                {mini.description && (
-                  <Text size="sm" c="dimmed" style={{ fontStyle: 'italic' }}>
-                    {mini.description}
-                  </Text>
-                )}
-                <Group gap="xs">
-                  <PillsList 
-                    items={mini.types} 
-                    color="blue"
-                    getItemColor={(type) => type.proxy_type ? 'blue' : 'teal'} 
-                  />
-                  <PillsList 
-                    items={mini.category_names} 
-                    color="violet" 
-                  />
-                  <PillsList
-                    items={mini.tags || []}
-                    color="pink"
-                  />
-                </Group>
-              </Stack>
-              <Button 
-                variant="light" 
-                size="xs" 
-                onClick={() => onEdit(mini)}
-                leftSection={<IconEdit size={14} />}
-              >
-                Edit
-              </Button>
+
+                {/* Classifications */}
+                <Stack gap={1}>
+                  {mini.types.some(type => type.proxy_type) && (
+                    <Group gap={4} style={{ minHeight: '20px' }}>
+                      <PillsList 
+                        items={mini.types.filter(type => type.proxy_type)} 
+                        color="blue"
+                      />
+                    </Group>
+                  )}
+
+                  {mini.category_names.length > 0 && (
+                    <Group gap={4} style={{ minHeight: '20px' }}>
+                      <PillsList 
+                        items={mini.category_names} 
+                        color="violet" 
+                      />
+                    </Group>
+                  )}
+
+                  {mini.tags && mini.tags.length > 0 && (
+                    <Group gap={4} style={{ minHeight: '20px' }}>
+                      <PillsList
+                        items={mini.tags}
+                        color="pink"
+                      />
+                    </Group>
+                  )}
+                </Stack>
+              </div>
             </Group>
           </Card>
         ))}
@@ -668,8 +791,6 @@ export default function Miniatures() {
       return <Text c="dimmed" ta="center">No miniatures found</Text>;
     }
 
-    const totalPages = Math.ceil((filteredMinis?.length || 0) / ITEMS_PER_PAGE);
-
     const viewProps = {
       minis: filteredMinis || [],
       onEdit: setEditingMini,
@@ -677,7 +798,7 @@ export default function Miniatures() {
       onPageChange: handlePageChange
     };
 
-    const view = (() => {
+    return (() => {
       switch (viewType) {
         case 'cards':
           return <CardsView {...viewProps} />;
@@ -687,22 +808,9 @@ export default function Miniatures() {
           return <TableView {...viewProps} />;
       }
     })();
-
-    return (
-      <Stack>
-        {view}
-        {totalPages > 1 && (
-          <Group justify="center" mt="md">
-            <Pagination 
-              value={currentPage}
-              onChange={handlePageChange}
-              total={totalPages}
-            />
-          </Group>
-        )}
-      </Stack>
-    );
   };
+
+  const totalPages = Math.ceil((filteredMinis?.length || 0) / ITEMS_PER_PAGE);
 
   return (
     <Stack>
@@ -721,15 +829,16 @@ export default function Miniatures() {
         }}>
           <div>
             <Title order={2} size="h3" mb={5}>Miniatures</Title>
-            <Text size="sm" c="dimmed">Manage your miniature collection below.</Text>
+            <Text size="sm" c="dimmed">Click 'Add Miniature' to add a new miniature.</Text>
+            <Text size="sm" c="dimmed">Manage your existing miniature collection below.</Text>
           </div>
           <Group>
             <SegmentedControl
               size="xs"
               data={[
-                { value: 'table', label: <Center><IconTable size={16} /><Box ml={4}>Table</Box></Center> },
-                { value: 'cards', label: <Center><IconLayoutGrid size={16} /><Box ml={4}>Cards</Box></Center> },
-                { value: 'banner', label: <Center><IconLayoutList size={16} /><Box ml={4}>Banner</Box></Center> }
+                { value: 'table', label: <Center><IconTable size={16} /><Box ml={8}>Table</Box></Center> },
+                { value: 'cards', label: <Center><IconLayoutGrid size={16} /><Box ml={8}>Cards</Box></Center> },
+                { value: 'banner', label: <Center><IconLayoutList size={16} /><Box ml={8}>Banner</Box></Center> }
               ]}
               value={viewType}
               onChange={handleViewChange}
@@ -768,6 +877,16 @@ export default function Miniatures() {
           {renderView()}
         </Stack>
       </Card>
+
+      {totalPages > 1 && (
+        <Group justify="center">
+          <Pagination 
+            value={currentPage}
+            onChange={handlePageChange}
+            total={totalPages}
+          />
+        </Group>
+      )}
 
       {/* Edit Modal */}
       <Modal

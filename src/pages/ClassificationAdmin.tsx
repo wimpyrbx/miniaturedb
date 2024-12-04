@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { Grid, Title, Card, Button, Group, Text, Stack, Modal, TextInput, Notification, Center, Loader, Box, useMantineColorScheme, Table, Switch, ScrollArea, UnstyledButton, useMantineTheme } from '@mantine/core';
+import { Grid, Title, Card, Button, Group, Text, Stack, Modal, TextInput, Notification, Center, Loader, Box, useMantineColorScheme, Table, Switch, ScrollArea, UnstyledButton, useMantineTheme, Pagination } from '@mantine/core';
 import { IconPlus, IconCheck, IconX, IconCircleCheck, IconCircle } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TableActions } from '../components/ui/tableactions/TableActions';
@@ -83,6 +83,26 @@ export function ClassificationAdmin() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [formName, setFormName] = useState('');
   const [showOnlyWithTypeChildren, setShowOnlyWithTypeChildren] = useState(false);
+  const [currentTypePage, setCurrentTypePage] = useState(1);
+  const [currentCategoryPage, setCurrentCategoryPage] = useState(1);
+  const PAGE_SIZE = 15;
+
+  // Pagination helpers
+  const paginateData = <T extends any>(data: T[], currentPage: number): T[] => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    return data.slice(start, end);
+  };
+
+  // Get paginated and filtered data
+  const getPaginatedTypes = () => {
+    const filtered = filterTypesWithChildren(types ?? []);
+    return paginateData(filtered, currentTypePage);
+  };
+
+  const getPaginatedCategories = () => {
+    return paginateData(categories ?? [], currentCategoryPage) as MiniatureCategory[];
+  };
 
   // Queries
   const { data: types, isLoading: isLoadingTypes } = useQuery({
@@ -478,110 +498,27 @@ export function ClassificationAdmin() {
           <Grid gutter="xs">
             {/* Types Column */}
             <Grid.Col span={4}>
-              <Card shadow="xl" p={0}
-                style={{
-                  borderRadius: 'var(--mantine-radius-md)',
-                  border: '1px solid var(--mantine-color-primary-light)'
-                }}
-              >
-                <Group justify="space-between" p="sm" style={{ 
-                  borderBottom: '1px solid var(--mantine-color-default-border)',
-                  background: 'var(--mantine-color-primary-light)',
-                  position: 'relative',
-                  minHeight: 'var(--mantine-spacing-xl)',
-                  alignItems: 'flex-start'
-                }}>
-                  <div>
-                    <Title order={2} size="h3" mb={5}>Miniature Types</Title>
-                    <Stack gap={2}>
-                      <Text size="sm" c="dimmed">First select a type below,</Text>
-                      <Text size="sm" c="dimmed">then manage its categories in the table to the right.</Text>
-                    </Stack>
-                  </div>
-                  <Button 
-                    size="xs"
-                    variant="light"
-                    color="green"
-                    leftSection={<IconPlus size={16} />}
-                    onClick={() => {
-                      setFormName('');
-                      setIsAddingType(true);
-                    }}
-                    style={{
-                      position: 'absolute',
-                      right: 'var(--mantine-spacing-sm)',
-                      top: 'var(--mantine-spacing-sm)'
-                    }}
-                  >
-                    Add Type
-                  </Button>
-                </Group>
-                
-                <Stack p="sm">
-                  {isLoadingTypes ? (
-                    <Center py="md">
-                      <Loader size="sm" />
-                    </Center>
-                  ) : types?.length === 0 ? (
-                    <Text c="dimmed" ta="center">No types found</Text>
-                  ) : (
-                    <DataTable
-                      data={filterTypesWithChildren(types ?? [])}
-                      columns={typeColumns}
-                      rowComponent={renderTypeRow}
-                      withPagination
-                      withFiltering
-                      pageSize={15}
-                      filterInputProps={{
-                        rightSection: (
-                          <Group gap="xs" wrap="nowrap">
-                            <Text size="sm" c="dimmed">In Use Only</Text>
-                            <Switch
-                              checked={showOnlyWithTypeChildren}
-                              onChange={(event) => setShowOnlyWithTypeChildren(event.currentTarget.checked)}
-                              size="sm"
-                            />
-                          </Group>
-                        )
-                      }}
-                    />
-                  )}
-                </Stack>
-              </Card>
-            </Grid.Col>
-
-            {/* Categories Column */}
-            <Grid.Col span={4}>
-              <Card shadow="xl" p={0}
-                style={{
-                  borderRadius: 'var(--mantine-radius-md)',
-                  border: '1px solid var(--mantine-color-primary-light)'
-                }}
-              >
-                <Group justify="space-between" p="sm" style={{ 
-                  borderBottom: '1px solid var(--mantine-color-default-border)',
-                  background: 'var(--mantine-color-primary-light)',
-                  position: 'relative',
-                  minHeight: 'var(--mantine-spacing-xl)',
-                  alignItems: 'flex-start'
-                }}>
-                  <div>
-                    <Title order={2} size="h3" mb={5}>Categories</Title>
-                    {selectedType ? (
+              <Stack>
+                <Card shadow="xl" p={0}
+                  style={{
+                    borderRadius: 'var(--mantine-radius-md)',
+                    border: '1px solid var(--mantine-color-primary-light)'
+                  }}
+                >
+                  <Group justify="space-between" p="sm" style={{ 
+                    borderBottom: '1px solid var(--mantine-color-default-border)',
+                    background: 'var(--mantine-color-primary-light)',
+                    position: 'relative',
+                    minHeight: 'var(--mantine-spacing-xl)',
+                    alignItems: 'flex-start'
+                  }}>
+                    <div>
+                      <Title order={2} size="h3" mb={5}>Miniature Types</Title>
                       <Stack gap={2}>
-                        <Text size="sm" c="dimmed">
-                          Type: <Text span fw={700} c={colorScheme === 'light' ? 'dark.9' : 'white'}>{selectedType.name}</Text>
-                        </Text>
-                        <Text size="sm" c="dimmed">Select or manage categories below.</Text>
+                        <Text size="sm" c="dimmed">First select a type below,</Text>
+                        <Text size="sm" c="dimmed">then manage its categories in the table to the right.</Text>
                       </Stack>
-                    ) : (
-                      <Stack gap={2}>
-                        <Text size="sm" c="dimmed">Select a type first to be able to</Text>
-                        <Text size="sm" c="dimmed">manage its categories.</Text>
-                      </Stack>
-                    )}
-                  </div>
-                  {selectedType && (
+                    </div>
                     <Button 
                       size="xs"
                       variant="light"
@@ -589,11 +526,7 @@ export function ClassificationAdmin() {
                       leftSection={<IconPlus size={16} />}
                       onClick={() => {
                         setFormName('');
-                        setIsAddingCategory(true);
-                        const currentCategories = queryClient.getQueryData<MiniatureCategory[]>(
-                          ['miniature_categories', selectedType!.id]
-                        ) || [];
-                        setSelectedCategories(currentCategories.map(c => c.id.toString()));
+                        setIsAddingType(true);
                       }}
                       style={{
                         position: 'absolute',
@@ -601,32 +534,144 @@ export function ClassificationAdmin() {
                         top: 'var(--mantine-spacing-sm)'
                       }}
                     >
-                      Manage Categories
+                      Add Type
                     </Button>
-                  )}
-                </Group>
-                
-                <Stack p="sm">
-                  {!selectedType ? (
-                    <Text c="dimmed" ta="center">Select a type to view its categories</Text>
-                  ) : isLoadingCategories ? (
-                    <Center py="md">
-                      <Loader size="sm" />
-                    </Center>
-                  ) : categories?.length === 0 ? (
-                    <Text c="dimmed" ta="center">No categories found</Text>
-                  ) : (
-                    <DataTable
-                      data={categories ?? []}
-                      columns={categoryColumns}
-                      rowComponent={renderCategoryRow}
-                      withPagination
-                      withFiltering
-                      pageSize={15}
+                  </Group>
+                  
+                  <Stack p="sm">
+                    {isLoadingTypes ? (
+                      <Center py="md">
+                        <Loader size="sm" />
+                      </Center>
+                    ) : types?.length === 0 ? (
+                      <Text c="dimmed" ta="center">No types found</Text>
+                    ) : (
+                      <DataTable
+                        data={getPaginatedTypes()}
+                        columns={typeColumns}
+                        rowComponent={renderTypeRow}
+                        withPagination={false}
+                        withFiltering
+                        pageSize={PAGE_SIZE}
+                        filterInputProps={{
+                          rightSection: (
+                            <Group gap="xs" wrap="nowrap">
+                              <Text size="sm" c="dimmed">In Use Only</Text>
+                              <Switch
+                                checked={showOnlyWithTypeChildren}
+                                onChange={(event) => {
+                                  setShowOnlyWithTypeChildren(event.currentTarget.checked);
+                                  setCurrentTypePage(1);
+                                }}
+                                size="sm"
+                              />
+                            </Group>
+                          )
+                        }}
+                      />
+                    )}
+                  </Stack>
+                </Card>
+                {types && filterTypesWithChildren(types).length > PAGE_SIZE && (
+                  <Group justify="center">
+                    <Pagination
+                      total={Math.ceil(filterTypesWithChildren(types).length / PAGE_SIZE)}
+                      value={currentTypePage}
+                      onChange={setCurrentTypePage}
                     />
-                  )}
-                </Stack>
-              </Card>
+                  </Group>
+                )}
+              </Stack>
+            </Grid.Col>
+
+            {/* Categories Column */}
+            <Grid.Col span={4}>
+              <Stack>
+                <Card shadow="xl" p={0}
+                  style={{
+                    borderRadius: 'var(--mantine-radius-md)',
+                    border: '1px solid var(--mantine-color-primary-light)'
+                  }}
+                >
+                  <Group justify="space-between" p="sm" style={{ 
+                    borderBottom: '1px solid var(--mantine-color-default-border)',
+                    background: 'var(--mantine-color-primary-light)',
+                    position: 'relative',
+                    minHeight: 'var(--mantine-spacing-xl)',
+                    alignItems: 'flex-start'
+                  }}>
+                    <div>
+                      <Title order={2} size="h3" mb={5}>Categories</Title>
+                      {selectedType ? (
+                        <Stack gap={2}>
+                          <Text size="sm" c="dimmed">
+                            Type: <Text span fw={700} c={colorScheme === 'light' ? 'dark.9' : 'white'}>{selectedType.name}</Text>
+                          </Text>
+                          <Text size="sm" c="dimmed">Select or manage categories below.</Text>
+                        </Stack>
+                      ) : (
+                        <Stack gap={2}>
+                          <Text size="sm" c="dimmed">Select a type first to be able to</Text>
+                          <Text size="sm" c="dimmed">manage its categories.</Text>
+                        </Stack>
+                      )}
+                    </div>
+                    {selectedType && (
+                      <Button 
+                        size="xs"
+                        variant="light"
+                        color="green"
+                        leftSection={<IconPlus size={16} />}
+                        onClick={() => {
+                          setFormName('');
+                          setIsAddingCategory(true);
+                          const currentCategories = queryClient.getQueryData<MiniatureCategory[]>(
+                            ['miniature_categories', selectedType!.id]
+                          ) || [];
+                          setSelectedCategories(currentCategories.map(c => c.id.toString()));
+                        }}
+                        style={{
+                          position: 'absolute',
+                          right: 'var(--mantine-spacing-sm)',
+                          top: 'var(--mantine-spacing-sm)'
+                        }}
+                      >
+                        Manage Categories
+                      </Button>
+                    )}
+                  </Group>
+                  
+                  <Stack p="sm">
+                    {!selectedType ? (
+                      <Text c="dimmed" ta="center">Select a type to view its categories</Text>
+                    ) : isLoadingCategories ? (
+                      <Center py="md">
+                        <Loader size="sm" />
+                      </Center>
+                    ) : categories?.length === 0 ? (
+                      <Text c="dimmed" ta="center">No categories found</Text>
+                    ) : (
+                      <DataTable
+                        data={getPaginatedCategories()}
+                        columns={categoryColumns}
+                        rowComponent={renderCategoryRow}
+                        withPagination={false}
+                        withFiltering
+                        pageSize={PAGE_SIZE}
+                      />
+                    )}
+                  </Stack>
+                </Card>
+                {categories && categories.length > PAGE_SIZE && (
+                  <Group justify="center">
+                    <Pagination
+                      total={Math.ceil(categories.length / PAGE_SIZE)}
+                      value={currentCategoryPage}
+                      onChange={setCurrentCategoryPage}
+                    />
+                  </Group>
+                )}
+              </Stack>
             </Grid.Col>
           </Grid>
         </Box>
