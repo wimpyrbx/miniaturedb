@@ -350,7 +350,44 @@ app.put('/api/settings', requireAuth, async (
 // Types
 app.get('/api/classification/types', requireAuth, (_req, res) => {
   try {
-    const types = minisDb.prepare('SELECT * FROM mini_types ORDER BY name').all();
+    const types = minisDb.prepare(`
+      WITH type_categories AS (
+        SELECT 
+          mt.id as type_id,
+          json_group_array(DISTINCT mc.id) as category_ids,
+          json_group_array(DISTINCT mc.name) as category_names
+        FROM mini_types mt
+        LEFT JOIN type_to_categories ttc ON mt.id = ttc.type_id
+        LEFT JOIN mini_categories mc ON ttc.category_id = mc.id
+        GROUP BY mt.id
+      )
+      SELECT 
+        mt.*,
+        tc.category_ids as categories,
+        tc.category_names as category_names,
+        (
+          SELECT json_group_array(m.id)
+          FROM minis m
+          JOIN mini_to_types mtt ON m.id = mtt.mini_id
+          WHERE mtt.type_id = mt.id
+        ) as mini_ids,
+        (
+          SELECT COUNT(*)
+          FROM minis m
+          JOIN mini_to_types mtt ON m.id = mtt.mini_id
+          WHERE mtt.type_id = mt.id
+        ) as mini_count
+      FROM mini_types mt
+      LEFT JOIN type_categories tc ON mt.id = tc.type_id
+      ORDER BY mt.name
+    `).all() as MiniType[];
+
+    // Parse JSON arrays
+    types.forEach(type => {
+      type.categories = JSON.parse(type.categories).filter((id: number | null) => id !== null);
+      type.category_names = JSON.parse(type.category_names).filter((name: string | null) => name !== null);
+    });
+
     res.json(types);
   } catch (error) {
     console.error('Error fetching types:', error);
@@ -422,11 +459,11 @@ app.get('/api/classification/types/:id/categories', requireAuth, (req, res) => {
 app.post('/api/classification/categories', requireAuth, (req, res) => {
   try {
     const { name, type_id } = req.body;
-    const db = minisDb.transaction((name, typeId) => {
+    const db = minisDb.transaction((name: string, typeId: number) => {
       // First create the category
       const category = minisDb.prepare(
         'INSERT INTO mini_categories (name) VALUES (?) RETURNING *'
-      ).get(name);
+      ).get(name) as Category;
       
       // Then link it to the type
       minisDb.prepare(
@@ -571,6 +608,309 @@ app.put('/api/classification/types/:id/categories', requireAuth, (req, res) => {
   } catch (error) {
     console.error('Error updating type categories:', error);
     res.status(500).json({ error: 'Failed to update type categories' });
+  }
+});
+
+interface Category {
+  id: number;
+  name: string;
+}
+
+interface Tag {
+  id: number;
+  name: string;
+}
+
+interface MiniType {
+  id: number;
+  name: string;
+  proxy_type: boolean;
+}
+
+interface Mini {
+  id: number;
+  name: string;
+  description: string | null;
+  location: string;
+  quantity: number;
+  created_at: string;
+  updated_at: string;
+  painted_by_id: number;
+  base_size_id: number;
+  product_set_id: number | null;
+  base_size_name: string | null;
+  painted_by_name: string | null;
+  product_set_name: string | null;
+  product_line_name: string | null;
+  company_name: string | null;
+}
+
+// Tag endpoints
+app.get('/api/tags', requireAuth, (_req, res) => {
+  try {
+    const tags = minisDb.prepare('SELECT * FROM tags ORDER BY name').all();
+    res.json(tags);
+  } catch (error) {
+    console.error('Error fetching tags:', error);
+    res.status(500).json({ error: 'Failed to fetch tags' });
+  }
+});
+
+app.post('/api/tags', requireAuth, (req, res) => {
+  try {
+    const { name } = req.body;
+    const result = minisDb.prepare(
+      'INSERT INTO tags (name) VALUES (?) RETURNING *'
+    ).get(name);
+    res.json(result);
+  } catch (error) {
+    console.error('Error creating tag:', error);
+    res.status(500).json({ error: 'Failed to create tag' });
+  }
+});
+
+// Minis endpoints
+app.get('/api/minis', requireAuth, (req, res) => {
+  try {
+    // First get all minis with their basic info
+    const minis = minisDb.prepare(`
+      SELECT 
+        m.*,
+        bs.base_size_name,
+        pb.painted_by_name,
+        ps.name as product_set_name,
+        pl.name as product_line_name,
+        pc.name as company_name
+      FROM minis m
+      LEFT JOIN base_sizes bs ON m.base_size_id = bs.id
+      LEFT JOIN painted_by pb ON m.painted_by_id = pb.id
+      LEFT JOIN product_sets ps ON m.product_set_id = ps.id
+      LEFT JOIN product_lines pl ON ps.product_line_id = pl.id
+      LEFT JOIN production_companies pc ON pl.company_id = pc.id
+      ORDER BY m.name
+    `).all() as Mini[];
+
+    // For each mini, get its tags
+    const minisWithTags = minis.map(mini => {
+      const tags = minisDb.prepare(`
+        SELECT t.id, t.name
+        FROM tags t
+        JOIN mini_to_tags mtt ON t.id = mtt.tag_id
+        WHERE mtt.mini_id = ?
+        ORDER BY t.name
+      `).all(mini.id) as Tag[];
+
+      // Get types and categories
+      const types = minisDb.prepare(`
+        SELECT mt.id, mt.name, mtt.proxy_type
+        FROM mini_types mt
+        JOIN mini_to_types mtt ON mt.id = mtt.type_id
+        WHERE mtt.mini_id = ?
+        ORDER BY mtt.proxy_type, mt.name
+      `).all(mini.id) as MiniType[];
+
+      const categories = minisDb.prepare(`
+        SELECT DISTINCT mc.id, mc.name
+        FROM mini_categories mc
+        JOIN type_to_categories ttc ON mc.id = ttc.category_id
+        JOIN mini_to_types mtt ON ttc.type_id = mtt.type_id
+        WHERE mtt.mini_id = ?
+        ORDER BY mc.name
+      `).all(mini.id) as Category[];
+
+      return {
+        ...mini,
+        tags,
+        types,
+        categories: categories.map(c => c.id),
+        category_names: categories.map(c => c.name)
+      };
+    });
+
+    res.json(minisWithTags);
+  } catch (error) {
+    console.error('Error fetching minis:', error);
+    res.status(500).json({ error: 'Failed to fetch minis' });
+  }
+});
+
+app.put('/api/minis/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    
+    const result = minisDb.prepare(`
+      UPDATE minis 
+      SET name = ?, 
+          description = ?, 
+          location = ?, 
+          quantity = ?,
+          painted_by_id = ?,
+          base_size_id = ?,
+          product_set_id = ?,
+          updated_at = datetime('now')
+      WHERE id = ?
+      RETURNING *
+    `).get(
+      updates.name, 
+      updates.description, 
+      updates.location, 
+      updates.quantity,
+      updates.painted_by_id,
+      updates.base_size_id,
+      updates.product_set_id,
+      id
+    );
+
+    if (!result) {
+      res.status(404).json({ error: 'Mini not found' });
+      return;
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error updating mini:', error);
+    res.status(500).json({ error: 'Failed to update mini' });
+  }
+});
+
+// Create new tag
+app.post('/api/tags', requireAuth, (req, res) => {
+  try {
+    const { name } = req.body;
+    const result = minisDb.prepare(
+      'INSERT INTO tags (name) VALUES (?) RETURNING *'
+    ).get(name) as Tag;
+    res.json(result);
+  } catch (error) {
+    console.error('Error creating tag:', error);
+    res.status(500).json({ error: 'Failed to create tag' });
+  }
+});
+
+// Update mini tags with support for new tags
+app.put('/api/minis/:id/tags', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tags } = req.body;  // Array of { id: number, name: string }
+
+    const updateTags = minisDb.transaction((miniId: number, tagData: Array<{ id: number, name: string }>) => {
+      // First create any new tags (those with id === -1)
+      const insertTagStmt = minisDb.prepare('INSERT INTO tags (name) VALUES (?) RETURNING *');
+      const newTags = tagData.filter(t => t.id === -1).map(t => {
+        const result = insertTagStmt.get(t.name) as Tag;
+        return result;
+      });
+
+      // Combine existing and new tags
+      const finalTags = [
+        ...tagData.filter(t => t.id !== -1),
+        ...newTags
+      ];
+
+      // Delete all existing tag relationships
+      minisDb.prepare('DELETE FROM mini_to_tags WHERE mini_id = ?').run(miniId);
+      
+      // Add all tag relationships
+      const insertRelationStmt = minisDb.prepare(
+        'INSERT INTO mini_to_tags (mini_id, tag_id) VALUES (?, ?)'
+      );
+      
+      for (const tag of finalTags) {
+        insertRelationStmt.run(miniId, tag.id);
+      }
+      
+      // Return the updated mini with tags
+      return minisDb.prepare(`
+        WITH mini_tags AS (
+          SELECT 
+            m.id as mini_id,
+            json_group_array(json_object(
+              'id', t.id,
+              'name', t.name
+            )) as tag_info
+          FROM minis m
+          LEFT JOIN mini_to_tags mtt ON m.id = mtt.mini_id
+          LEFT JOIN tags t ON mtt.tag_id = t.id
+          WHERE m.id = ?
+          GROUP BY m.id
+        )
+        SELECT 
+          m.*,
+          mt.tag_info as tags
+        FROM minis m
+        LEFT JOIN mini_tags mt ON m.id = mt.mini_id
+        WHERE m.id = ?
+        GROUP BY m.id
+      `).get(miniId, miniId) as Mini;
+    });
+    
+    const updatedMini = updateTags(parseInt(id), tags);
+    updatedMini.tags = JSON.parse(updatedMini.tags).filter((t: any) => t.id !== null);
+    
+    res.json(updatedMini);
+  } catch (error) {
+    console.error('Error updating mini tags:', error);
+    res.status(500).json({ error: 'Failed to update mini tags' });
+  }
+});
+
+app.put('/api/minis/:id/type', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { typeId } = req.body;
+
+    const updateType = minisDb.transaction((miniId: number, newTypeId: number) => {
+      // First delete all existing types
+      minisDb.prepare('DELETE FROM mini_to_types WHERE mini_id = ?').run(miniId);
+      
+      // Then add the new type
+      minisDb.prepare(
+        'INSERT INTO mini_to_types (mini_id, type_id, proxy_type) VALUES (?, ?, 0)'
+      ).run(miniId, newTypeId);
+      
+      // Return the updated mini with type
+      return minisDb.prepare(`
+        SELECT 
+          m.*,
+          json_group_array(mt.id) as types
+        FROM minis m
+        LEFT JOIN mini_to_types mty ON m.id = mty.mini_id
+        LEFT JOIN mini_types mt ON mty.type_id = mt.id
+        WHERE m.id = ?
+        GROUP BY m.id
+      `).get(miniId) as Mini;
+    });
+    
+    const updatedMini = updateType(parseInt(id), typeId);
+    updatedMini.types = JSON.parse(updatedMini.types).filter((id: number | null) => id !== null);
+    
+    res.json(updatedMini);
+  } catch (error) {
+    console.error('Error updating mini type:', error);
+    res.status(500).json({ error: 'Failed to update mini type' });
+  }
+});
+
+// Base sizes endpoints
+app.get('/api/base_sizes', requireAuth, (_req, res) => {
+  try {
+    const baseSizes = minisDb.prepare('SELECT * FROM base_sizes ORDER BY id').all();
+    res.json(baseSizes);
+  } catch (error) {
+    console.error('Error fetching base sizes:', error);
+    res.status(500).json({ error: 'Failed to fetch base sizes' });
+  }
+});
+
+// Painted by endpoints
+app.get('/api/painted_by', requireAuth, (_req, res) => {
+  try {
+    const paintedBy = minisDb.prepare('SELECT * FROM painted_by ORDER BY id').all();
+    res.json(paintedBy);
+  } catch (error) {
+    console.error('Error fetching painted by options:', error);
+    res.status(500).json({ error: 'Failed to fetch painted by options' });
   }
 });
 
