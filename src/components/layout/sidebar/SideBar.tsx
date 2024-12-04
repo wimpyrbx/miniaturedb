@@ -106,7 +106,7 @@ export function SideBar({ onLogout }: { onLogout?: () => void }) {
 
   const items = [
     { link: '/', label: 'Home', icon: IconHome, color: 'blue' },
-    { link: '/products', label: 'Products', icon: IconPackage, color: 'teal' },
+    { link: '/miniatures', label: 'Miniatures', icon: IconPackage, color: 'teal' },
   ];
 
   const adminPages = [

@@ -3,6 +3,7 @@
  * @description A wrapper component for StyledTable that adds pagination and filtering capabilities
  */
 
+import React from 'react';
 import { TextInput, Group, Pagination, Stack, Table } from '@mantine/core';
 import { IconSearch } from '@tabler/icons-react';
 import { useState, useMemo } from 'react';
@@ -93,7 +94,11 @@ export function DataTable<T>({
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
-          {paginatedData.map((item, index) => rowComponent(item))}
+          {paginatedData.map((item, index) => (
+            <React.Fragment key={(item as any).id ?? index}>
+              {rowComponent(item)}
+            </React.Fragment>
+          ))}
         </Table.Tbody>
       </StyledTable>
 

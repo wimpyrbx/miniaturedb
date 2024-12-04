@@ -13,7 +13,7 @@ import api from './api/client';
 import { defaultStyle } from './components/themes/styleselect/default';
 import { compactStyle } from './components/themes/styleselect/compact';
 import FloatingDiv from './components/FloatingDiv';
-import Products from './pages/Products';
+import Miniatures from './pages/Miniatures';
 import { ProductAdmin } from './pages/ProductAdmin';
 import { ClassificationAdmin } from './pages/ClassificationAdmin';
 import { UIExamples } from './pages/UIExamples';
@@ -21,6 +21,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Notifications } from '@mantine/notifications';
 import { checkAuth } from './api/client';
 import { useMantineColorScheme } from '@mantine/core';
+import { getSettings } from './api/settings/get';
 
 interface AuthState {
   authenticated: boolean;
@@ -178,10 +179,10 @@ export default function App() {
               } 
             />
             <Route 
-              path="/products" 
+              path="/miniatures" 
               element={
                 authState.authenticated ? (
-                  <AuthenticatedLayout><Products /></AuthenticatedLayout>
+                  <AuthenticatedLayout><Miniatures /></AuthenticatedLayout>
                 ) : (
                   <Navigate to="/login" replace />
                 )
