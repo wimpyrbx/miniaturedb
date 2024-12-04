@@ -181,16 +181,20 @@ export default function Miniatures() {
         <Stack gap={4}>
           <Text>{mini.name}</Text>
           <Group gap={4}>
-            <Text size="sm" c="dimmed">
+            <Text size="xs" c="primary.6" style={{ fontStyle: 'italic', opacity: 0.8 }}>
               {[mini.company_name, mini.product_line_name, mini.product_set_name].filter(Boolean).join(' » ')}
             </Text>
           </Group>
-          {mini.description && (
-            <Text size="sm" c="dimmed" style={{ fontStyle: 'italic' }}>
-              {mini.description}
-            </Text>
-          )}
         </Stack>
+      </Table.Td>
+      <Table.Td>
+        {mini.description ? (
+          <Text size="sm" c="dimmed" style={{ fontStyle: 'italic' }}>
+            {mini.description}
+          </Text>
+        ) : (
+          <Text c="dimmed">-</Text>
+        )}
       </Table.Td>
       <Table.Td>
         <Stack gap="xs">
@@ -211,14 +215,14 @@ export default function Miniatures() {
           color="pink"
         />
       </Table.Td>
-      <Table.Td>
+      <Table.Td style={{ width: '120px' }}>
         <Text>{mini.location}</Text>
       </Table.Td>
-      <Table.Td>
-        <Text>{mini.painted_by_name || '-'}</Text>
+      <Table.Td style={{ width: '120px' }}>
+        <Text>{mini.painted_by_name ? mini.painted_by_name.charAt(0).toUpperCase() + mini.painted_by_name.slice(1) : '-'}</Text>
       </Table.Td>
-      <Table.Td>
-        <Text>{mini.base_size_name || '-'}</Text>
+      <Table.Td style={{ width: '100px' }}>
+        <Text>{mini.base_size_name ? mini.base_size_name.charAt(0).toUpperCase() + mini.base_size_name.slice(1) : '-'}</Text>
       </Table.Td>
       <Table.Td style={{ width: '70px', padding: 'var(--mantine-spacing-xs)' }}>
         <Group justify="flex-end" wrap="nowrap">
@@ -277,16 +281,25 @@ export default function Miniatures() {
         <Stack gap={4}>
           <Text>{mini.name}</Text>
           <Group gap={4}>
-            <Text size="sm" c="dimmed">
+            <Text size="xs" c="primary.6" style={{ fontStyle: 'italic', opacity: 0.8 }}>
               {[mini.company_name, mini.product_line_name, mini.product_set_name].filter(Boolean).join(' » ')}
             </Text>
           </Group>
-          {mini.description && (
-            <Text size="sm" c="dimmed" style={{ fontStyle: 'italic' }}>
-              {mini.description}
-            </Text>
-          )}
         </Stack>
+      )
+    },
+    {
+      key: 'description',
+      label: 'Description',
+      filterable: true,
+      render: (mini: Mini) => (
+        mini.description ? (
+          <Text size="sm" c="dimmed" style={{ fontStyle: 'italic' }}>
+            {mini.description}
+          </Text>
+        ) : (
+          <Text c="dimmed">-</Text>
+        )
       )
     },
     { 
@@ -321,6 +334,7 @@ export default function Miniatures() {
     { 
       key: 'location', 
       label: 'Location', 
+      width: 120,
       filterable: true,
       render: (mini: Mini) => (
         <Text>{mini.location}</Text>
@@ -329,17 +343,19 @@ export default function Miniatures() {
     { 
       key: 'painted_by', 
       label: 'Painted By', 
+      width: 120,
       filterable: true,
       render: (mini: Mini) => (
-        <Text>{mini.painted_by_name || '-'}</Text>
+        <Text>{mini.painted_by_name ? mini.painted_by_name.charAt(0).toUpperCase() + mini.painted_by_name.slice(1) : '-'}</Text>
       )
     },
     { 
       key: 'base_size', 
       label: 'Base Size', 
+      width: 100,
       filterable: true,
       render: (mini: Mini) => (
-        <Text>{mini.base_size_name || '-'}</Text>
+        <Text>{mini.base_size_name ? mini.base_size_name.charAt(0).toUpperCase() + mini.base_size_name.slice(1) : '-'}</Text>
       )
     },
     { 
@@ -402,7 +418,7 @@ export default function Miniatures() {
               rowComponent={RowComponent}
               withPagination
               withFiltering
-              pageSize={15}
+              pageSize={10}
             />
           )}
         </Stack>
