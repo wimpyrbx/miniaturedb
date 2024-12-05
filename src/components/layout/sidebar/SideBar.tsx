@@ -100,7 +100,10 @@ export function MenuGroup({ label, icon, children, color = 'blue' }: MenuGroupPr
   );
 }
 
-export function SideBar({ onLogout }: { onLogout?: () => void }) {
+export function SideBar({ onLogout, onToggleThemeSettings }: { 
+  onLogout?: () => void;
+  onToggleThemeSettings: () => void;
+}) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -178,7 +181,17 @@ export function SideBar({ onLogout }: { onLogout?: () => void }) {
           </MenuGroup>
         </div>
 
-        <div style={styles.logoutButton}>
+        <Stack gap="xs" style={styles.logoutButton}>
+          <Button 
+            fullWidth 
+            variant="subtle" 
+            color="blue" 
+            onClick={onToggleThemeSettings}
+            leftSection={<IconPalette size={16} />}
+            size="sm"
+          >
+            Theme Settings
+          </Button>
           <Button 
             fullWidth 
             variant="subtle" 
@@ -189,7 +202,7 @@ export function SideBar({ onLogout }: { onLogout?: () => void }) {
           >
             Logout
           </Button>
-        </div>
+        </Stack>
       </div>
     </AppShell.Navbar>
   );

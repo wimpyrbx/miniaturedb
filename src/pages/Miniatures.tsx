@@ -7,6 +7,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TableActions } from '../components/ui/tableactions/TableActions';
 import { IconEdit, IconPlus, IconPhoto, IconTable, IconLayoutGrid, IconLayoutList, IconSearch, IconPackage, IconTrash } from '@tabler/icons-react';
 import { AdminModal } from '../components/AdminModal';
+import { getMiniatureImagePath, checkMiniatureImageStatus, uploadMiniatureImage, deleteMiniatureImage, ImageStatus } from '../utils/imageUtils';
+import { modals } from '@mantine/modals';
 
 interface Category {
   id: number;
@@ -54,6 +56,7 @@ interface Mini {
   product_set_name: string | null;
   product_line_name: string | null;
   company_name: string | null;
+  imageStatus?: ImageStatus;
 }
 
 interface BaseSize {
@@ -167,228 +170,83 @@ const TableView = ({ minis, onEdit, currentPage, onPageChange }: {
     currentPage * ITEMS_PER_PAGE
   );
 
-  // Custom row component
-  const RowComponent = (mini: Mini) => (
-    <Table.Tr key={mini.id}>
-      <Table.Td style={{ width: '50px', maxWidth: '50px', padding: 'var(--mantine-spacing-xs)' }}>
-        <div style={{ 
-          width: '100%', 
-          aspectRatio: '1',
-          backgroundColor: 'var(--mantine-color-dark-4)',
-          borderRadius: 'var(--mantine-radius-sm)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <IconPhoto 
-            style={{ 
-              color: 'var(--mantine-color-dark-2)',
-              opacity: 0.5 
-            }} 
-            size={24} 
-          />
-        </div>
-      </Table.Td>
-      <Table.Td>
-        <Stack gap={4}>
-          <Text>{mini.name}</Text>
-          <Group gap={4}>
-            <Text size="xs" style={{ fontStyle: 'italic' }}>
-              {[mini.company_name, mini.product_line_name, mini.product_set_name]
-                .filter(Boolean)
-                .map((text, index, arr) => (
-                  <React.Fragment key={index}>
-                    <span style={{ color: 'var(--mantine-color-primary-6)', opacity: 0.8 }}>{text}</span>
-                    {index < arr.length - 1 && ' » '}
-                  </React.Fragment>
-                ))
-              }
-            </Text>
-          </Group>
-        </Stack>
-      </Table.Td>
-      <Table.Td>
-        <Stack gap="xs">
-          <PillsList 
-            items={mini.types} 
-            color="blue"
-            getItemColor={(type) => type.proxy_type ? 'blue' : 'teal'} 
-          />
-          <PillsList 
-            items={mini.category_names} 
-            color="violet" 
-          />
-        </Stack>
-      </Table.Td>
-      <Table.Td>
-        <PillsList
-          items={mini.tags || []}
-          color="pink"
-        />
-      </Table.Td>
-      <Table.Td style={{ width: '250px' }}>
-        <Stack gap={2}>
-          <Group gap="xs" align="center">
-            <Text size="xs" fw={500} c="dimmed">Location:</Text>
-            <Text size="xs" fw={500} c="primary.4">{mini.location}</Text>
-          </Group>
-          <Group gap="xs" align="center">
-            <Text size="xs" fw={500} c="dimmed">Painted By:</Text>
-            <Text size="xs" fw={500} c="primary.4">
-              {mini.painted_by_name ? mini.painted_by_name.charAt(0).toUpperCase() + mini.painted_by_name.slice(1) : '-'}
-            </Text>
-          </Group>
-          <Group gap="xs" align="center">
-            <Text size="xs" fw={500} c="dimmed">Base Size:</Text>
-            <Text size="xs" fw={500} c="primary.4">
-              {mini.base_size_name 
-                ? mini.base_size_name.charAt(0).toUpperCase() + mini.base_size_name.slice(1).toLowerCase() 
-                : '-'}
-            </Text>
-          </Group>
-        </Stack>
-      </Table.Td>
-      <Table.Td style={{ width: '70px', padding: 'var(--mantine-spacing-xs)' }}>
-        <Group justify="flex-end" wrap="nowrap">
-          <TableActions
-            elementType="icon"
-            onEdit={() => onEdit(mini)}
-            onDelete={() => {}}
-          />
-        </Group>
-      </Table.Td>
-    </Table.Tr>
-  );
-
-  const columns = [
-    {
-      key: 'image',
-      label: '',
-      width: 50,
-      render: () => (
-        <div style={{ 
-          width: '100%', 
-          aspectRatio: '1',
-          backgroundColor: 'var(--mantine-color-dark-4)',
-          borderRadius: 'var(--mantine-radius-sm)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <IconPhoto 
-            style={{ 
-              color: 'var(--mantine-color-dark-2)',
-              opacity: 0.5 
-            }} 
-            size={24} 
-          />
-        </div>
-      )
-    },
-    { 
-      key: 'name', 
-      label: 'Name', 
-      filterable: true,
-      render: (mini: Mini) => (
-        <Stack gap={4}>
-          <Text>{mini.name}</Text>
-          <Group gap={4}>
-            <Text size="xs" style={{ fontStyle: 'italic' }}>
-              {[mini.company_name, mini.product_line_name, mini.product_set_name]
-                .filter(Boolean)
-                .map((text, index, arr) => (
-                  <React.Fragment key={index}>
-                    <span style={{ color: 'var(--mantine-color-primary-6)', opacity: 0.8 }}>{text}</span>
-                    {index < arr.length - 1 && ' » '}
-                  </React.Fragment>
-                ))
-              }
-            </Text>
-          </Group>
-        </Stack>
-      )
-    },
-    { 
-      key: 'classifications', 
-      label: 'Classifications', 
-      filterable: true,
-      render: (mini: Mini) => (
-        <Stack gap="xs">
-          <PillsList 
-            items={mini.types} 
-            color="blue"
-            getItemColor={(type) => type.proxy_type ? 'blue' : 'teal'} 
-          />
-          <PillsList 
-            items={mini.category_names} 
-            color="violet" 
-          />
-        </Stack>
-      )
-    },
-    {
-      key: 'tags',
-      label: 'Tags',
-      filterable: true,
-      render: (mini: Mini) => (
-        <PillsList
-          items={mini.tags || []}
-          color="pink"
-        />
-      )
-    },
-    { 
-      key: 'information', 
-      label: 'Information', 
-      width: 250,
-      filterable: true,
-      render: (mini: Mini) => (
-        <Stack gap={2}>
-          <Group gap="xs" align="center">
-            <Text size="xs" fw={500} c="dimmed">Location:</Text>
-            <Text size="xs" fw={500} c="primary.4">{mini.location}</Text>
-          </Group>
-          <Group gap="xs" align="center">
-            <Text size="xs" fw={500} c="dimmed">Painted By:</Text>
-            <Text size="xs" fw={500} c="primary.4">
-              {mini.painted_by_name ? mini.painted_by_name.charAt(0).toUpperCase() + mini.painted_by_name.slice(1) : '-'}
-            </Text>
-          </Group>
-          <Group gap="xs" align="center">
-            <Text size="xs" fw={500} c="dimmed">Base Size:</Text>
-            <Text size="xs" fw={500} c="primary.4">
-              {mini.base_size_name 
-                ? mini.base_size_name.charAt(0).toUpperCase() + mini.base_size_name.slice(1).toLowerCase() 
-                : '-'}
-            </Text>
-          </Group>
-        </Stack>
-      )
-    },
-    { 
-      key: 'actions', 
-      label: '',
-      width: 70,
-      render: (mini: Mini) => (
-        <Group justify="flex-end" wrap="nowrap">
-          <TableActions
-            elementType="icon"
-            onEdit={() => onEdit(mini)}
-            onDelete={() => {}}
-          />
-        </Group>
-      )
-    }
-  ];
-
   return (
-    <Stack>
-      <DataTable
-        data={paginatedMinis}
-        columns={columns}
-        rowComponent={RowComponent}
-      />
-    </Stack>
+    <Table>
+      <Table.Thead>
+        <Table.Tr>
+          <Table.Th style={{ width: '80px' }}>Image</Table.Th>
+          <Table.Th>Name</Table.Th>
+          <Table.Th>Location</Table.Th>
+          <Table.Th>Base Size</Table.Th>
+          <Table.Th>Painted By</Table.Th>
+          <Table.Th style={{ width: '80px' }}>Actions</Table.Th>
+        </Table.Tr>
+      </Table.Thead>
+      <Table.Tbody>
+        {paginatedMinis.map((mini) => (
+          <Table.Tr key={mini.id}>
+            <Table.Td>
+              <div style={{ 
+                width: '60px',
+                height: '60px',
+                backgroundColor: 'var(--mantine-color-dark-4)',
+                borderRadius: 'var(--mantine-radius-sm)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                {mini.imageStatus?.hasOriginal ? (
+                  <img 
+                    src={getMiniatureImagePath(mini.id, 'original')}
+                    alt={mini.name}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain'
+                    }}
+                  />
+                ) : (
+                  <IconPhoto size={24} style={{ opacity: 0.5 }} />
+                )}
+              </div>
+            </Table.Td>
+            <Table.Td>
+              <Stack gap={4}>
+                <Text size="sm">{mini.name}</Text>
+                <Group gap={4}>
+                  {mini.types.map(type => (
+                    <Badge 
+                      key={type.id} 
+                      size="xs" 
+                      color={type.proxy_type ? 'blue' : 'teal'}
+                      variant="dot"
+                    >
+                      {type.name}
+                    </Badge>
+                  ))}
+                </Group>
+              </Stack>
+            </Table.Td>
+            <Table.Td>{mini.location}</Table.Td>
+            <Table.Td>{mini.base_size_name || 'No Base'}</Table.Td>
+            <Table.Td>{mini.painted_by_name || '-'}</Table.Td>
+            <Table.Td>
+              <Button 
+                variant="subtle" 
+                color="blue" 
+                onClick={() => onEdit(mini)}
+                size="xs"
+                style={{ padding: '4px', minWidth: 0, width: '24px', height: '24px' }}
+              >
+                <IconEdit size={14} />
+              </Button>
+            </Table.Td>
+          </Table.Tr>
+        ))}
+      </Table.Tbody>
+    </Table>
   );
 };
 
@@ -404,123 +262,142 @@ const CardsView = ({ minis, onEdit, currentPage, onPageChange }: {
   );
 
   return (
-    <Stack>
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(5, 1fr)',
-        gap: 'var(--mantine-spacing-xs)'
-      }}>
-        {paginatedMinis.map(mini => (
-          <Card 
-            key={mini.id} 
-            shadow="sm" 
-            padding="xs"
-            withBorder
-            style={{
-              transition: 'all 200ms ease',
+    <div style={{ 
+      display: 'grid', 
+      gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
+      gap: 'var(--mantine-spacing-xs)'
+    }}>
+      {paginatedMinis.map(mini => (
+        <Card 
+          key={mini.id} 
+          shadow="sm" 
+          padding={0}
+          withBorder
+          style={{
+            transition: 'all 200ms ease',
+          }}
+          component="div"
+          onMouseEnter={(e) => {
+            const target = e.currentTarget as HTMLElement;
+            target.style.transform = 'scale(1.02)';
+            target.style.zIndex = '100';
+            target.style.boxShadow = '0 0 20px 0 var(--mantine-color-primary-light)';
+          }}
+          onMouseLeave={(e) => {
+            const target = e.currentTarget as HTMLElement;
+            target.style.transform = 'none';
+            target.style.zIndex = '';
+            target.style.boxShadow = 'var(--mantine-shadow-sm)';
+          }}
+        >
+          <Card.Section style={{ position: 'relative' }}>
+            <Button 
+              variant="filled" 
+              size="sm"
+              color="dark"
+              onClick={() => onEdit(mini)}
+              style={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                zIndex: 2,
+                padding: '4px 8px',
+                minWidth: 0,
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                backdropFilter: 'blur(4px)',
+                transition: 'all 200ms ease',
+                '&:hover': {
+                  backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                  transform: 'scale(1.1)'
+                }
+              }}
+            >
+              <IconEdit size={16} />
+            </Button>
+            <div style={{ 
+              width: '100%',
+              aspectRatio: '1',
+              backgroundColor: 'var(--mantine-color-dark-4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               position: 'relative'
-            }}
-            component="div"
-            onMouseEnter={(e) => {
-              const target = e.currentTarget as HTMLElement;
-              target.style.transform = 'scale(1.04)';
-              target.style.boxShadow = '0 0 20px 0 var(--mantine-color-primary-dark)';
-            }}
-            onMouseLeave={(e) => {
-              const target = e.currentTarget as HTMLElement;
-              target.style.transform = 'none';
-              target.style.boxShadow = 'var(--mantine-shadow-sm)';
-            }}
-          >
-            <Card.Section style={{ position: 'relative' }}>
-              <Button 
-                variant="light" 
-                size="xs" 
-                onClick={() => onEdit(mini)}
-                style={{
-                  position: 'absolute',
-                  top: 8,
-                  right: 8,
-                  zIndex: 2,
-                  padding: '4px',
-                  minWidth: 0,
-                  width: '28px',
-                  height: '28px'
-                }}
-              >
-                <IconEdit size={14} />
-              </Button>
-              <div style={{ 
-                height: '160px',
-                backgroundColor: 'var(--mantine-color-dark-4)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                position: 'relative'
-              }}>
+            }}>
+              {mini.imageStatus?.hasOriginal ? (
+                <img 
+                  src={getMiniatureImagePath(mini.id, 'original')}
+                  alt={mini.name}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                    padding: '8px'
+                  }}
+                />
+              ) : (
                 <IconPhoto size={48} style={{ opacity: 0.5 }} />
-                <div style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  padding: '8px',
-                  background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
-                  zIndex: 1
-                }}>
-                  <PillsList 
-                    items={mini.types.filter(type => !type.proxy_type)} 
-                    color="teal"
-                  />
-                </div>
+              )}
+              <div style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                padding: '8px',
+                background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
+                zIndex: 1
+              }}>
+                <PillsList 
+                  items={mini.types.filter(type => !type.proxy_type)} 
+                  color="teal"
+                />
               </div>
-            </Card.Section>
-            <Stack gap="xs" mt="xs">
-              <Group justify="space-between" align="flex-start">
-                <Text fw={500} size="lg" style={{ lineHeight: 1.1 }}>{mini.name}</Text>
-                <Group gap={4}>
-                  <Text size="xs" c="dimmed" style={{ 
-                    padding: '4px 8px',
-                    border: '1px solid var(--mantine-color-dark-4)',
-                    borderRadius: 'var(--mantine-radius-sm)',
-                    backgroundColor: 'var(--mantine-color-dark-7)',
-                    whiteSpace: 'nowrap',
-                    color: 'var(--mantine-color-primary-4)'
-                  }}>
-                    {mini.base_size_name || 'No Base'}
-                  </Text>
-                </Group>
-              </Group>
-
-              {mini.types.some(type => type.proxy_type) && (
-                <PillsList 
-                  items={mini.types.filter(type => type.proxy_type)} 
-                  color="blue"
-                />
-              )}
-
-              {mini.category_names.length > 0 && (
-                <PillsList 
-                  items={mini.category_names} 
-                  color="violet" 
-                />
-              )}
-
-              <Group gap="xs" mt="xs">
-                <Text size="xs" c="var(--mantine-color-primary)">
-                  <Text size="xs" span inherit c="var(--mantine-color-primary-3)" fw={500}>Location:</Text> {mini.location}
+            </div>
+          </Card.Section>
+          <Stack gap="xs" p="sm">
+            <Group justify="space-between" align="flex-start">
+              <Text fw={500} size="lg" style={{ lineHeight: 1.1 }}>{mini.name}</Text>
+              <Group gap={4}>
+                <Text size="xs" c="dimmed" style={{ 
+                  padding: '4px 8px',
+                  border: '1px solid var(--mantine-color-dark-4)',
+                  borderRadius: 'var(--mantine-radius-sm)',
+                  backgroundColor: 'var(--mantine-color-dark-7)',
+                  whiteSpace: 'nowrap',
+                  color: 'var(--mantine-color-primary-4)'
+                }}>
+                  {mini.base_size_name || 'No Base'}
                 </Text>
-                {mini.painted_by_name && (
-                  <Text size="xs" c="var(--mantine-color-primary)">
-                    <Text size="xs" span inherit c="var(--mantine-color-primary-3)" fw={500}>Painted by:</Text> {mini.painted_by_name}
-                  </Text>
-                )}
               </Group>
-            </Stack>
-          </Card>
-        ))}
-      </div>
-    </Stack>
+            </Group>
+
+            {mini.types.some(type => type.proxy_type) && (
+              <PillsList 
+                items={mini.types.filter(type => type.proxy_type)} 
+                color="blue"
+              />
+            )}
+
+            {mini.category_names.length > 0 && (
+              <PillsList 
+                items={mini.category_names} 
+                color="violet" 
+              />
+            )}
+
+            <Group gap="xs" mt="xs">
+              <Text size="xs" c="var(--mantine-color-primary)">
+                <Text size="xs" span inherit c="var(--mantine-color-primary-3)" fw={500}>Location:</Text> {mini.location}
+              </Text>
+              {mini.painted_by_name && (
+                <Text size="xs" c="var(--mantine-color-primary)">
+                  <Text size="xs" span inherit c="var(--mantine-color-primary-3)" fw={500}>Painted by:</Text> {mini.painted_by_name}
+                </Text>
+              )}
+            </Group>
+          </Stack>
+        </Card>
+      ))}
+    </div>
   );
 };
 
@@ -530,6 +407,14 @@ const BannerView = ({ minis, onEdit, currentPage, onPageChange }: {
   currentPage: number,
   onPageChange: (page: number) => void
 }) => {
+  // Generate random scale origins for each mini
+  const scaleOrigins = useMemo(() => 
+    minis.map(() => ({
+      x: Math.random() * 100,
+      y: Math.random() * 100
+    }))
+  , [minis]);
+
   const paginatedMinis = minis.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
@@ -542,7 +427,7 @@ const BannerView = ({ minis, onEdit, currentPage, onPageChange }: {
         gridTemplateColumns: 'repeat(2, 1fr)',
         gap: 'var(--mantine-spacing-xs)'
       }}>
-        {paginatedMinis.map(mini => (
+        {paginatedMinis.map((mini, index) => (
           <Card 
             key={mini.id} 
             shadow="sm" 
@@ -550,6 +435,8 @@ const BannerView = ({ minis, onEdit, currentPage, onPageChange }: {
             withBorder
             style={{
               transition: 'all 200ms ease',
+              position: 'relative',
+              overflow: 'hidden'
             }}
             component="div"
             onMouseEnter={(e) => {
@@ -557,15 +444,48 @@ const BannerView = ({ minis, onEdit, currentPage, onPageChange }: {
               target.style.transform = 'scale(1.02)';
               target.style.zIndex = '100';
               target.style.boxShadow = '0 0 20px 0 var(--mantine-color-primary-light)';
+              const bgImage = target.querySelector('.background-image') as HTMLElement;
+              if (bgImage) {
+                bgImage.style.opacity = '0.15';
+                bgImage.style.transform = 'scale(1.1)';
+              }
             }}
             onMouseLeave={(e) => {
               const target = e.currentTarget as HTMLElement;
               target.style.transform = 'none';
               target.style.zIndex = '';
               target.style.boxShadow = 'var(--mantine-shadow-sm)';
+              const bgImage = target.querySelector('.background-image') as HTMLElement;
+              if (bgImage) {
+                bgImage.style.opacity = '0';
+                bgImage.style.transform = 'scale(0.95)';
+              }
             }}
           >
-            <Group wrap="nowrap" align="flex-start" gap="sm">
+            {/* Background blur effect */}
+            {mini.imageStatus?.hasOriginal && (
+              <div 
+                className="background-image"
+                style={{
+                  position: 'absolute',
+                  top: '-10%',
+                  left: '-10%',
+                  right: '-10%',
+                  bottom: '-10%',
+                  backgroundImage: `url(${getMiniatureImagePath(mini.id, 'original')})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  filter: 'blur(10px)',
+                  opacity: 0,
+                  transition: 'all 400ms cubic-bezier(0.4, 0, 0.2, 1)',
+                  transform: 'scale(0.95)',
+                  transformOrigin: `${scaleOrigins[index].x}% ${scaleOrigins[index].y}%`,
+                  zIndex: 0
+                }}
+              />
+            )}
+
+            <Group wrap="nowrap" align="flex-start" gap="sm" style={{ position: 'relative', zIndex: 1 }}>
               {/* Image Section */}
               <div style={{ 
                 width: '120px',
@@ -576,26 +496,45 @@ const BannerView = ({ minis, onEdit, currentPage, onPageChange }: {
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0,
-                position: 'relative'
+                position: 'relative',
+                overflow: 'hidden'
               }}>
+                {mini.imageStatus?.hasOriginal ? (
+                  <img 
+                    src={getMiniatureImagePath(mini.id, 'original')}
+                    alt={mini.name}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain'
+                    }}
+                  />
+                ) : (
+                  <IconPhoto size={32} style={{ opacity: 0.5 }} />
+                )}
                 <Button 
-                  variant="light" 
-                  size="xs" 
+                  variant="filled" 
+                  size="sm"
+                  color="dark"
                   onClick={() => onEdit(mini)}
                   style={{
                     position: 'absolute',
                     top: 8,
                     right: 8,
                     zIndex: 2,
-                    padding: '4px',
+                    padding: '4px 8px',
                     minWidth: 0,
-                    width: '28px',
-                    height: '28px'
+                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                    backdropFilter: 'blur(4px)',
+                    transition: 'all 200ms ease',
+                    '&:hover': {
+                      backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                      transform: 'scale(1.1)'
+                    }
                   }}
                 >
-                  <IconEdit size={14} />
+                  <IconEdit size={16} />
                 </Button>
-                <IconPhoto size={32} style={{ opacity: 0.5 }} />
                 <div style={{
                   position: 'absolute',
                   bottom: 0,
@@ -675,36 +614,6 @@ const BannerView = ({ minis, onEdit, currentPage, onPageChange }: {
                     }
                   </Text>
                 </div>
-
-                {/* Classifications */}
-                <Stack gap={1}>
-                  {mini.types.some(type => type.proxy_type) && (
-                    <Group gap={4} style={{ minHeight: '20px' }}>
-                      <PillsList 
-                        items={mini.types.filter(type => type.proxy_type)} 
-                        color="blue"
-                      />
-                    </Group>
-                  )}
-
-                  {mini.category_names.length > 0 && (
-                    <Group gap={4} style={{ minHeight: '20px' }}>
-                      <PillsList 
-                        items={mini.category_names} 
-                        color="violet" 
-                      />
-                    </Group>
-                  )}
-
-                  {mini.tags && mini.tags.length > 0 && (
-                    <Group gap={4} style={{ minHeight: '20px' }}>
-                      <PillsList
-                        items={mini.tags}
-                        color="pink"
-                      />
-                    </Group>
-                  )}
-                </Stack>
               </div>
             </Group>
           </Card>
@@ -723,6 +632,10 @@ interface MiniatureModalProps {
 const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState<Partial<Mini> | null>(null);
+  const [imageStatus, setImageStatus] = useState<ImageStatus>({ hasOriginal: false, hasThumb: false });
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isDeletingImage, setIsDeletingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Add queries for base sizes and painted by options
   const { data: baseSizes } = useQuery<BaseSize[]>({
@@ -742,16 +655,64 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
       return response.json();
     }
   });
-  
-  // Load initial data when modal opens - this should only happen once
+
+  // Check image status when modal opens
   useEffect(() => {
     if (opened && miniature) {
-      // Take a snapshot of the data when modal opens
+      console.log('Checking image status for miniature:', miniature.id);
+      checkMiniatureImageStatus(miniature.id).then(status => {
+        console.log('Image status received:', status);
+        setImageStatus(status);
+      });
+    }
+  }, [opened, miniature?.id]);
+  
+  // Load initial data when modal opens
+  useEffect(() => {
+    if (opened && miniature) {
+      console.log('Setting form data:', miniature);
       setFormData(miniature);
     } else {
       setFormData(null);
     }
-  }, [opened]); // Only depend on opened, not miniature
+  }, [opened]);
+
+  // Debug render
+  console.log('Render state:', {
+    formData: formData?.id,
+    imageStatus,
+    imagePath: formData?.id ? getMiniatureImagePath(formData.id, 'original') : null
+  });
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !formData?.id) return;
+
+    setIsUploadingImage(true);
+    try {
+      const success = await uploadMiniatureImage(formData.id, file);
+      if (success) {
+        const newStatus = await checkMiniatureImageStatus(formData.id);
+        setImageStatus(newStatus);
+      }
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleImageDelete = async () => {
+    if (!formData?.id) return;
+
+    setIsDeletingImage(true);
+    try {
+      const success = await deleteMiniatureImage(formData.id);
+      if (success) {
+        setImageStatus({ hasOriginal: false, hasThumb: false });
+      }
+    } finally {
+      setIsDeletingImage(false);
+    }
+  };
 
   // Mutation for saving changes
   const updateMutation = useMutation({
@@ -766,7 +727,6 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
       return response.json();
     },
     onSuccess: () => {
-      // Only invalidate queries after successful save
       queryClient.invalidateQueries({ queryKey: ['minis'] });
       onClose();
     }
@@ -779,6 +739,8 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
   };
 
   if (!formData) return null;
+
+  const imagePath = getMiniatureImagePath(formData.id!, 'original');
 
   return (
     <AdminModal
@@ -805,40 +767,116 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
                   justifyContent: 'center',
                   border: '1px solid var(--mantine-color-dark-3)',
                   position: 'relative',
-                  width: '100%'
+                  width: '100%',
+                  overflow: 'hidden'
                 }}
               >
-                <IconPhoto style={{ width: '40%', height: '40%', opacity: 0.5 }} />
-                <Button 
-                  variant="light"
-                  color="red"
-                  size="xs"
-                  style={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                    opacity: 0,
-                    transition: 'opacity 0.2s ease',
-                    '&:hover': {
-                      opacity: 1
-                    }
-                  }}
-                >
-                  Delete
-                </Button>
-                <IconTrash 
-                  style={{ 
-                    position: 'absolute',
-                    bottom: 8,
-                    right: 8,
-                    opacity: 0.7,
-                    color: 'var(--mantine-color-red-4)',
-                    backgroundColor: 'var(--mantine-color-dark-6)',
-                    padding: 4,
-                    borderRadius: 4
-                  }} 
-                  size={20}
+                {imageStatus.hasOriginal ? (
+                  <>
+                    <img 
+                      key={imagePath}
+                      src={imagePath}
+                      alt={formData.name}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain'
+                      }}
+                      onError={(e) => {
+                        console.error('Image failed to load:', imagePath);
+                        const img = e.target as HTMLImageElement;
+                        img.style.display = 'none';
+                      }}
+                      onLoad={() => console.log('Image loaded successfully:', imagePath)}
+                    />
+                    <div style={{ display: 'none' }}>
+                      Debug info:
+                      Path: {imagePath}
+                      Status: {JSON.stringify(imageStatus)}
+                    </div>
+                  </>
+                ) : (
+                  <IconPhoto style={{ width: '40%', height: '40%', opacity: 0.5 }} />
+                )}
+
+                {/* Upload trigger button - show when no image */}
+                {!imageStatus.hasOriginal && !isUploadingImage && (
+                  <Button
+                    variant="light"
+                    size="xs"
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      position: 'absolute',
+                      bottom: 8,
+                      right: 8,
+                      opacity: 0.7
+                    }}
+                  >
+                    Upload Image
+                  </Button>
+                )}
+
+                {/* Hidden file input */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  style={{ display: 'none' }}
+                  onChange={handleImageUpload}
+                  accept="image/jpeg,image/png,image/webp"
                 />
+
+                {/* Delete button - show on hover when image exists */}
+                {imageStatus.hasOriginal && !isDeletingImage && (
+                  <Button 
+                    variant="light"
+                    color="red"
+                    size="xs"
+                    onClick={() => {
+                      modals.openConfirmModal({
+                        title: 'Delete Image',
+                        children: (
+                          <Text size="sm">
+                            Are you sure you want to delete this image? This action cannot be undone.
+                          </Text>
+                        ),
+                        labels: { confirm: 'Delete', cancel: 'Cancel' },
+                        confirmProps: { color: 'red' },
+                        onConfirm: handleImageDelete
+                      });
+                    }}
+                    style={{
+                      position: 'absolute',
+                      top: 8,
+                      right: 8,
+                      opacity: 0,
+                      transition: 'opacity 0.2s ease',
+                      '&:hover': {
+                        opacity: 1
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
+                )}
+
+                {/* Loading states */}
+                {(isUploadingImage || isDeletingImage) && (
+                  <Box
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <Loader color="white" size="sm" />
+                  </Box>
+                )}
               </Box>
 
               {/* Fields below image */}
@@ -947,7 +985,17 @@ export default function Miniatures() {
     queryFn: async () => {
       const response = await fetch('/api/minis', { credentials: 'include' });
       if (!response.ok) throw new Error('Failed to fetch minis');
-      return response.json();
+      const minis = await response.json();
+      
+      // Check image status for all minis
+      const minisWithImageStatus = await Promise.all(
+        minis.map(async (mini) => {
+          const imageStatus = await checkMiniatureImageStatus(mini.id);
+          return { ...mini, imageStatus };
+        })
+      );
+      
+      return minisWithImageStatus;
     },
     staleTime: 30000 // Consider data fresh for 30 seconds
   });

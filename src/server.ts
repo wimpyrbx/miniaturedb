@@ -7,6 +7,10 @@ import Database from 'better-sqlite3';
 import { Request, Response } from 'express';
 import type { ParamsDictionary } from 'express-serve-static-core';
 import type { ParsedQs } from 'qs';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import sharp from 'sharp';
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -931,6 +935,119 @@ app.get('/api/painted_by', requireAuth, (_req, res) => {
   } catch (error) {
     console.error('Error fetching painted by options:', error);
     res.status(500).json({ error: 'Failed to fetch painted by options' });
+  }
+});
+
+// Configure multer for image uploads
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: (_req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.mimetype)) {
+      cb(new Error('Invalid file type. Only JPEG, PNG and WebP are allowed'));
+      return;
+    }
+    cb(null, true);
+  }
+});
+
+// Helper function to ensure directory exists
+function ensureDirectoryExists(dirPath: string) {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+}
+
+// Helper function to get image paths
+function getImagePaths(miniId: number) {
+  const idStr = miniId.toString();
+  const firstDigit = idStr[0];
+  const secondDigit = idStr.length > 1 ? idStr[1] : '0';
+  
+  const originalDir = path.join(process.cwd(), 'public', 'images', 'miniatures', 'original', firstDigit, secondDigit);
+  const thumbDir = path.join(process.cwd(), 'public', 'images', 'miniatures', 'thumb', firstDigit, secondDigit);
+  
+  return {
+    originalDir,
+    thumbDir,
+    originalPath: path.join(originalDir, `${miniId}.webp`),
+    thumbPath: path.join(thumbDir, `${miniId}.webp`)
+  };
+}
+
+// Image status endpoint
+app.get('/api/minis/:id/image', requireAuth, (req, res) => {
+  try {
+    const miniId = parseInt(req.params.id);
+    const { originalPath, thumbPath } = getImagePaths(miniId);
+    
+    const status = {
+      hasOriginal: fs.existsSync(originalPath),
+      hasThumb: fs.existsSync(thumbPath)
+    };
+    
+    res.json(status);
+  } catch (error) {
+    console.error('Error checking image status:', error);
+    res.status(500).json({ error: 'Failed to check image status' });
+  }
+});
+
+// Image upload endpoint
+app.post('/api/minis/:id/image', requireAuth, upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: 'No image file provided' });
+      return;
+    }
+
+    const miniId = parseInt(req.params.id);
+    const { originalDir, thumbDir, originalPath, thumbPath } = getImagePaths(miniId);
+
+    // Ensure directories exist
+    ensureDirectoryExists(originalDir);
+    ensureDirectoryExists(thumbDir);
+
+    // Process and save original image
+    await sharp(req.file.buffer)
+      .webp({ quality: 90 })
+      .toFile(originalPath);
+
+    // Process and save thumbnail
+    await sharp(req.file.buffer)
+      .resize(200, 200, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .webp({ quality: 80 })
+      .toFile(thumbPath);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    res.status(500).json({ error: 'Failed to upload image' });
+  }
+});
+
+// Image delete endpoint
+app.delete('/api/minis/:id/image', requireAuth, (req, res) => {
+  try {
+    const miniId = parseInt(req.params.id);
+    const { originalPath, thumbPath } = getImagePaths(miniId);
+    
+    // Delete both original and thumb if they exist
+    if (fs.existsSync(originalPath)) {
+      fs.unlinkSync(originalPath);
+    }
+    if (fs.existsSync(thumbPath)) {
+      fs.unlinkSync(thumbPath);
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting image:', error);
+    res.status(500).json({ error: 'Failed to delete image' });
   }
 });
 

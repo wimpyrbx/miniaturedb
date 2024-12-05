@@ -7,7 +7,7 @@ import { SideBar } from './components/layout/sidebar/SideBar';
 import { Login } from './pages/Login';
 import { Home } from './pages/Home';
 import { themes } from './components/themes/themeselect';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, createContext, useContext } from 'react';
 import { Theme } from './lib/theme';
 import api from './api/client';
 import { defaultStyle } from './components/themes/styleselect/default';
@@ -36,6 +36,7 @@ interface UserSettings {
 
 function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
+  const { setThemeSettingsVisible } = useContext(AppContext);
 
   const handleLogout = async () => {
     try {
@@ -59,7 +60,10 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
         }
       }}
     >
-      <SideBar onLogout={handleLogout} />
+      <SideBar 
+        onLogout={handleLogout} 
+        onToggleThemeSettings={() => setThemeSettingsVisible(prev => !prev)} 
+      />
       <AppShell.Main>
         {children}
       </AppShell.Main>
@@ -67,10 +71,22 @@ function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Create a context for theme settings
+interface AppContextType {
+  themeSettingsVisible: boolean;
+  setThemeSettingsVisible: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+export const AppContext = createContext<AppContextType>({
+  themeSettingsVisible: false,
+  setThemeSettingsVisible: () => {},
+});
+
 export default function App() {
   const [theme, setTheme] = useState<Theme>(themes.find(t => t.label === '⚫ Graphite') || themes[0]);
   const [style, setStyle] = useState(defaultStyle);
   const [colorScheme, setColorScheme] = useState<'light' | 'dark'>('dark');
+  const [themeSettingsVisible, setThemeSettingsVisible] = useState(false);
   const [authState, setAuthState] = useState<AuthState>({
     authenticated: false,
     loading: true
@@ -153,76 +169,80 @@ export default function App() {
       <Loader size="xl" />
     </Center>
   ) : (
-    <ModalsProvider>
-      <Notifications />
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <Routes>
-            <Route 
-              path="/login" 
-              element={
-                authState.authenticated ? (
-                  <Navigate to="/" replace />
-                ) : (
-                  <Login onLogin={() => setAuthState({ authenticated: true, loading: false })} />
-                )
-              } 
-            />
-            <Route 
-              path="/" 
-              element={
-                authState.authenticated ? (
-                  <AuthenticatedLayout><Home /></AuthenticatedLayout>
-                ) : (
-                  <Navigate to="/login" replace />
-                )
-              } 
-            />
-            <Route 
-              path="/miniatures" 
-              element={
-                authState.authenticated ? (
-                  <AuthenticatedLayout><Miniatures /></AuthenticatedLayout>
-                ) : (
-                  <Navigate to="/login" replace />
-                )
-              } 
-            />
-            <Route 
-              path="/product-admin" 
-              element={
-                authState.authenticated ? (
-                  <AuthenticatedLayout><ProductAdmin /></AuthenticatedLayout>
-                ) : (
-                  <Navigate to="/login" replace />
-                )
-              } 
-            />
-            <Route 
-              path="/classification-admin" 
-              element={
-                authState.authenticated ? (
-                  <AuthenticatedLayout><ClassificationAdmin /></AuthenticatedLayout>
-                ) : (
-                  <Navigate to="/login" replace />
-                )
-              } 
-            />
-            <Route 
-              path="/ui-examples" 
-              element={
-                authState.authenticated ? (
-                  <AuthenticatedLayout><UIExamples /></AuthenticatedLayout>
-                ) : (
-                  <Navigate to="/login" replace />
-                )
-              } 
-            />
-          </Routes>
-          {authState.authenticated && <FloatingDiv />}
-        </BrowserRouter>
-      </QueryClientProvider>
-    </ModalsProvider>
+    <AppContext.Provider value={{ themeSettingsVisible, setThemeSettingsVisible }}>
+      <ModalsProvider>
+        <Notifications />
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <Routes>
+              <Route 
+                path="/login" 
+                element={
+                  authState.authenticated ? (
+                    <Navigate to="/" replace />
+                  ) : (
+                    <Login onLogin={() => setAuthState({ authenticated: true, loading: false })} />
+                  )
+                } 
+              />
+              <Route 
+                path="/" 
+                element={
+                  authState.authenticated ? (
+                    <AuthenticatedLayout><Home /></AuthenticatedLayout>
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                } 
+              />
+              <Route 
+                path="/miniatures" 
+                element={
+                  authState.authenticated ? (
+                    <AuthenticatedLayout><Miniatures /></AuthenticatedLayout>
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                } 
+              />
+              <Route 
+                path="/product-admin" 
+                element={
+                  authState.authenticated ? (
+                    <AuthenticatedLayout><ProductAdmin /></AuthenticatedLayout>
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                } 
+              />
+              <Route 
+                path="/classification-admin" 
+                element={
+                  authState.authenticated ? (
+                    <AuthenticatedLayout><ClassificationAdmin /></AuthenticatedLayout>
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                } 
+              />
+              <Route 
+                path="/ui-examples" 
+                element={
+                  authState.authenticated ? (
+                    <AuthenticatedLayout><UIExamples /></AuthenticatedLayout>
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                } 
+              />
+            </Routes>
+            {authState.authenticated && themeSettingsVisible && (
+              <FloatingDiv onClose={() => setThemeSettingsVisible(false)} />
+            )}
+          </BrowserRouter>
+        </QueryClientProvider>
+      </ModalsProvider>
+    </AppContext.Provider>
   );
 
   return (

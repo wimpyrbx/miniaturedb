@@ -1,6 +1,6 @@
 import { useState, useEffect, MouseEvent, useMemo } from 'react';
-import { Box, SegmentedControl, Stack, Text, useMantineTheme, useMantineColorScheme, Group } from '@mantine/core';
-import { IconSun, IconMoon } from '@tabler/icons-react';
+import { Box, SegmentedControl, Stack, Text, useMantineTheme, useMantineColorScheme, Group, ActionIcon } from '@mantine/core';
+import { IconSun, IconMoon, IconX } from '@tabler/icons-react';
 import { themes } from './themes/themeselect';
 import { Theme } from '../lib/theme';
 import { getTextColor } from '../lib/color';
@@ -80,7 +80,11 @@ const generateBackgroundColors = (theme: Theme, colorScheme: 'light' | 'dark') =
   }
 };
 
-const FloatingDiv = () => {
+interface FloatingDivProps {
+  onClose: () => void;
+}
+
+const FloatingDiv = ({ onClose }: FloatingDivProps) => {
   const theme = useMantineTheme();
   const { colorScheme, setColorScheme } = useMantineColorScheme();
   const [isDragging, setIsDragging] = useState(false);
@@ -242,8 +246,21 @@ const FloatingDiv = () => {
         backgroundColor: theme.colors.dark[8],
         padding: '12px 20px',
         borderBottom: `1px solid ${theme.colors.dark[4]}`,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
       }}>
         <Text fw={700} size="md">Theme Settings</Text>
+        <ActionIcon 
+          variant="subtle" 
+          color="gray" 
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+        >
+          <IconX size={16} />
+        </ActionIcon>
       </div>
       <div style={{ padding: '20px' }}>
         <Stack gap="md">
