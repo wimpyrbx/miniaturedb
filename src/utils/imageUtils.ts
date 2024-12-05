@@ -1,9 +1,9 @@
-export function getMiniatureImagePath(miniId: number, type: 'original' | 'thumb'): string {
+export function getMiniatureImagePath(miniId: number, type: 'original' | 'thumb', timestamp?: number): string {
   const idStr = miniId.toString();
   const firstDigit = idStr[0];
   const secondDigit = idStr.length > 1 ? idStr[1] : '0';
-  
-  return `/images/miniatures/${type}/${firstDigit}/${secondDigit}/${miniId}.webp`;
+  const path = `/images/miniatures/${type}/${firstDigit}/${secondDigit}/${miniId}.webp`;
+  return timestamp ? `${path}?t=${timestamp}` : path;
 }
 
 export interface ImageStatus {

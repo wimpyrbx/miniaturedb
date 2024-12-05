@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { useState } from 'react';
-import { Stack, Title, Text, Group, Card, Button, TextInput, MultiSelect, Select, Textarea, NumberInput, useMantineColorScheme, Radio, TagsInput, Badge, Center, Loader, SegmentedControl, Pagination, Box, Grid, Paper, UnstyledButton, ActionIcon, Table, MantineTheme, Combobox, useCombobox, InputBase, ScrollArea } from '@mantine/core';
+import { Stack, Title, Text, Group, Card, Button, TextInput, MultiSelect, Select, Textarea, NumberInput, useMantineColorScheme, Radio, TagsInput, Badge, Center, Loader, SegmentedControl, Pagination, Box, Grid, Paper, UnstyledButton, ActionIcon, Table, MantineTheme, Combobox, useCombobox, InputBase, ScrollArea, Notification, SimpleGrid } from '@mantine/core';
 import { DataTable } from '../components/ui/table/DataTable';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TableActions } from '../components/ui/tableactions/TableActions';
@@ -59,6 +59,7 @@ interface Mini {
   product_line_name: string | null;
   company_name: string | null;
   imageStatus?: ImageStatus;
+  imageTimestamp?: number;
 }
 
 interface BaseSize {
@@ -161,11 +162,12 @@ type ViewType = 'table' | 'cards' | 'banner';
 
 const ITEMS_PER_PAGE = 10;
 
-const TableView = ({ minis, onEdit, currentPage, onPageChange }: { 
+const TableView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp }: { 
   minis: Mini[], 
   onEdit: (mini: Mini) => void,
   currentPage: number,
-  onPageChange: (page: number) => void
+  onPageChange: (page: number) => void,
+  imageTimestamp: number
 }) => {
   const paginatedMinis = minis.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
@@ -201,7 +203,11 @@ const TableView = ({ minis, onEdit, currentPage, onPageChange }: {
               }}>
                 {mini.imageStatus?.hasOriginal ? (
                   <img 
-                    src={getMiniatureImagePath(mini.id, 'original')}
+                    src={getMiniatureImagePath(
+                      mini.id, 
+                      'original', 
+                      mini.imageTimestamp || imageTimestamp
+                    )}
                     alt={mini.name}
                     style={{
                       width: '100%',
@@ -252,134 +258,147 @@ const TableView = ({ minis, onEdit, currentPage, onPageChange }: {
   );
 };
 
-const CardsView = ({ minis, onEdit, currentPage, onPageChange }: { 
+const CardsView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp }: { 
   minis: Mini[], 
   onEdit: (mini: Mini) => void,
   currentPage: number,
-  onPageChange: (page: number) => void
+  onPageChange: (page: number) => void,
+  imageTimestamp: number
 }) => {
+  const paginatedMinis = minis.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
   return (
-    <Grid>
-      {minis.map(mini => (
-        <Grid.Col key={mini.id} span={4}>
-          <Card shadow="sm" padding={0}>
-            <Card.Section style={{ position: 'relative' }}>
-              <Button 
-                variant="filled" 
-                size="sm"
-                color="dark"
-                onClick={() => onEdit(mini)}
-                style={{
-                  position: 'absolute',
-                  top: 16,
-                  right: 16,
-                  zIndex: 2,
-                  padding: '4px 8px',
-                  minWidth: 0,
-                  backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                  backdropFilter: 'blur(4px)',
-                  transition: 'all 200ms ease',
-                  '&:hover': {
-                    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                    transform: 'scale(1.1)'
-                  }
-                }}
-              >
-                <IconEdit size={16} />
-              </Button>
-              <div style={{ 
-                width: '100%',
-                aspectRatio: '1',
-                backgroundColor: 'var(--mantine-color-dark-4)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                position: 'relative'
+    <SimpleGrid cols={5} spacing="sm">
+      {paginatedMinis.map((mini) => (
+        <Card 
+          key={mini.id} 
+          shadow="sm" 
+          padding={0}
+          withBorder
+          style={{
+            transition: 'all 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+            position: 'relative',
+            overflow: 'hidden',
+            cursor: 'pointer',
+            border: '1px solid transparent'
+          }}
+          onClick={() => onEdit(mini)}
+          onMouseEnter={(e) => {
+            const target = e.currentTarget;
+            target.style.transform = 'translateY(-4px) scale(1.02)';
+            target.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.3)';
+            target.style.borderColor = 'var(--mantine-color-primary-light)';
+            target.style.zIndex = '1';
+          }}
+          onMouseLeave={(e) => {
+            const target = e.currentTarget;
+            target.style.transform = 'none';
+            target.style.boxShadow = 'var(--mantine-shadow-sm)';
+            target.style.borderColor = 'transparent';
+            target.style.zIndex = 'auto';
+          }}
+        >
+          <Card.Section style={{ position: 'relative' }}>
+            <div style={{ 
+              width: '100%',
+              aspectRatio: '1',
+              backgroundColor: 'var(--mantine-color-dark-4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative'
+            }}>
+              {mini.imageStatus?.hasOriginal ? (
+                <img 
+                  src={getMiniatureImagePath(
+                    mini.id, 
+                    'original', 
+                    mini.imageTimestamp || imageTimestamp
+                  )}
+                  alt={mini.name}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                    padding: '8px'
+                  }}
+                />
+              ) : (
+                <IconPhoto size={48} style={{ opacity: 0.5 }} />
+              )}
+              <div style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                padding: '8px',
+                background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
+                zIndex: 1
               }}>
-                {mini.imageStatus?.hasOriginal ? (
-                  <img 
-                    src={getMiniatureImagePath(mini.id, 'original')}
-                    alt={mini.name}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'contain',
-                      padding: '8px'
-                    }}
-                  />
-                ) : (
-                  <IconPhoto size={48} style={{ opacity: 0.5 }} />
-                )}
-                <div style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  padding: '8px',
-                  background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
-                  zIndex: 1
-                }}>
-                  <PillsList 
-                    items={mini.types?.filter(type => !type.proxy_type) || []} 
-                    color="teal"
-                  />
-                </div>
+                <PillsList 
+                  items={mini.types?.filter(type => !type.proxy_type) || []} 
+                  color="teal"
+                />
               </div>
-            </Card.Section>
-            <Stack gap="xs" p="sm">
-              <Group justify="space-between" align="flex-start">
-                <Text fw={500} size="lg" style={{ lineHeight: 1.1 }}>{mini.name}</Text>
-                <Group gap={4}>
-                  <Text size="xs" c="dimmed" style={{ 
-                    padding: '4px 8px',
-                    border: '1px solid var(--mantine-color-dark-4)',
-                    borderRadius: 'var(--mantine-radius-sm)',
-                    backgroundColor: 'var(--mantine-color-dark-7)',
-                    whiteSpace: 'nowrap',
-                    color: 'var(--mantine-color-primary-4)'
-                  }}>
-                    {mini.base_size_name || 'No Base'}
-                  </Text>
-                </Group>
-              </Group>
-
-              {mini.types?.some(type => type.proxy_type) && (
-                <PillsList 
-                  items={mini.types?.filter(type => type.proxy_type) || []} 
-                  color="blue"
-                />
-              )}
-
-              {mini.category_names?.length > 0 && (
-                <PillsList 
-                  items={mini.category_names} 
-                  color="violet" 
-                />
-              )}
-
-              <Group gap="xs" mt="xs">
-                <Text size="xs" c="var(--mantine-color-primary)">
-                  <Text size="xs" span inherit c="var(--mantine-color-primary-3)" fw={500}>Location:</Text> {mini.location}
+            </div>
+          </Card.Section>
+          <Stack gap="xs" p="sm">
+            <Group justify="space-between" align="flex-start">
+              <Text fw={500} size="lg" style={{ lineHeight: 1.1 }}>{mini.name}</Text>
+              <Group gap={4}>
+                <Text size="xs" c="dimmed" style={{ 
+                  padding: '4px 8px',
+                  border: '1px solid var(--mantine-color-dark-4)',
+                  borderRadius: 'var(--mantine-radius-sm)',
+                  backgroundColor: 'var(--mantine-color-dark-7)',
+                  whiteSpace: 'nowrap',
+                  color: 'var(--mantine-color-primary-4)'
+                }}>
+                  {mini.base_size_name || 'No Base'}
                 </Text>
-                {mini.painted_by_name && (
-                  <Text size="xs" c="var(--mantine-color-primary)">
-                    <Text size="xs" span inherit c="var(--mantine-color-primary-3)" fw={500}>Painted by:</Text> {mini.painted_by_name}
-                  </Text>
-                )}
               </Group>
-            </Stack>
-          </Card>
-        </Grid.Col>
+            </Group>
+
+            {mini.types?.some(type => type.proxy_type) && (
+              <PillsList 
+                items={mini.types?.filter(type => type.proxy_type) || []} 
+                color="blue"
+              />
+            )}
+
+            {mini.category_names?.length > 0 && (
+              <PillsList 
+                items={mini.category_names} 
+                color="violet" 
+              />
+            )}
+
+            <Group gap="xs" mt="xs">
+              <Text size="xs" c="var(--mantine-color-primary)">
+                <Text size="xs" span inherit c="var(--mantine-color-primary-3)" fw={500}>Location:</Text> {mini.location}
+              </Text>
+              {mini.painted_by_name && (
+                <Text size="xs" c="var(--mantine-color-primary)">
+                  <Text size="xs" span inherit c="var(--mantine-color-primary-3)" fw={500}>Painted by:</Text> {mini.painted_by_name}
+                </Text>
+              )}
+            </Group>
+          </Stack>
+        </Card>
       ))}
-    </Grid>
+    </SimpleGrid>
   );
 };
 
-const BannerView = ({ minis, onEdit, currentPage, onPageChange }: { 
+const BannerView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp }: { 
   minis: Mini[], 
   onEdit: (mini: Mini) => void,
   currentPage: number,
-  onPageChange: (page: number) => void
+  onPageChange: (page: number) => void,
+  imageTimestamp: number
 }) => {
   // Generate random scale origins for each mini
   const scaleOrigins = useMemo(() => 
@@ -410,11 +429,12 @@ const BannerView = ({ minis, onEdit, currentPage, onPageChange }: {
             style={{
               transition: 'all 200ms ease',
               position: 'relative',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              cursor: 'pointer'
             }}
-            component="div"
+            onClick={() => onEdit(mini)}
             onMouseEnter={(e) => {
-              const target = e.currentTarget as HTMLElement;
+              const target = e.currentTarget;
               target.style.transform = 'scale(1.02)';
               target.style.zIndex = '100';
               target.style.boxShadow = '0 0 20px 0 var(--mantine-color-primary-light)';
@@ -425,7 +445,7 @@ const BannerView = ({ minis, onEdit, currentPage, onPageChange }: {
               }
             }}
             onMouseLeave={(e) => {
-              const target = e.currentTarget as HTMLElement;
+              const target = e.currentTarget;
               target.style.transform = 'none';
               target.style.zIndex = '';
               target.style.boxShadow = 'var(--mantine-shadow-sm)';
@@ -446,7 +466,7 @@ const BannerView = ({ minis, onEdit, currentPage, onPageChange }: {
                   left: '-10%',
                   right: '-10%',
                   bottom: '-10%',
-                  backgroundImage: `url(${getMiniatureImagePath(mini.id, 'original')})`,
+                  backgroundImage: `url(${getMiniatureImagePath(mini.id, 'original', mini.imageTimestamp || imageTimestamp)})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                   filter: 'blur(10px)',
@@ -475,7 +495,7 @@ const BannerView = ({ minis, onEdit, currentPage, onPageChange }: {
               }}>
                 {mini.imageStatus?.hasOriginal ? (
                   <img 
-                    src={getMiniatureImagePath(mini.id, 'original')}
+                    src={getMiniatureImagePath(mini.id, 'original', mini.imageTimestamp || imageTimestamp)}
                     alt={mini.name}
                     style={{
                       width: '100%',
@@ -486,29 +506,6 @@ const BannerView = ({ minis, onEdit, currentPage, onPageChange }: {
                 ) : (
                   <IconPhoto size={32} style={{ opacity: 0.5 }} />
                 )}
-                <Button 
-                  variant="filled" 
-                  size="sm"
-                  color="dark"
-                  onClick={() => onEdit(mini)}
-                  style={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                    zIndex: 2,
-                    padding: '4px 8px',
-                    minWidth: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                    backdropFilter: 'blur(4px)',
-                    transition: 'all 200ms ease',
-                    '&:hover': {
-                      backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                      transform: 'scale(1.1)'
-                    }
-                  }}
-                >
-                  <IconEdit size={16} />
-                </Button>
                 <div style={{
                   position: 'absolute',
                   bottom: 0,
@@ -595,9 +592,10 @@ interface MiniatureModalProps {
   opened: boolean;
   onClose: () => void;
   miniature: Mini | null;
+  onImageUpdate?: (timestamp: number) => void;
 }
 
-const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => {
+const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: MiniatureModalProps) => {
   const queryClient = useQueryClient();
   const { colorScheme } = useMantineColorScheme();
   const [formData, setFormData] = useState<Mini | null>(null);
@@ -610,6 +608,12 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
   const [nameError, setNameError] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [notification, setNotification] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    color: string;
+  }>({ show: false, title: '', message: '', color: 'blue' });
 
   // Validate name field
   const validateName = (name: string): string | null => {
@@ -998,32 +1002,254 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
     }
   }, [opened, miniature]);
 
+  // Add this effect for auto-hiding notifications
+  useEffect(() => {
+    if (notification.show) {
+      const timer = setTimeout(() => {
+        setNotification(prev => ({ ...prev, show: false }));
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification.show]);
+
+  // Update the validateImageRatio function
+  const validateImageRatio = async (file: File): Promise<boolean> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+      
+      img.onload = () => {
+        const aspectRatio = img.width / img.height;
+        if (Math.abs(aspectRatio - 1) > 0.02) {  // Allow only 2% deviation from square
+          setNotification({
+            show: true,
+            title: 'Error',
+            message: 'Only square images are allowed. Please crop your image to a 1:1 ratio.',
+            color: 'red'
+          });
+          reject(new Error('Image must be square'));
+        }
+        resolve(true);
+      };
+      
+      img.onerror = () => {
+        setNotification({
+          show: true,
+          title: 'Error',
+          message: 'Failed to load image',
+          color: 'red'
+        });
+        reject(new Error('Failed to load image'));
+      };
+    });
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !formData?.id) return;
 
-    setIsUploadingImage(true);
+    // Store current state in case we need to revert
+    const previousImageStatus = { ...imageStatus };
+    const previousPreview = imagePreview;
+
     try {
+      await validateImageRatio(file);
+      // Set preview immediately after validation succeeds
+      const previewUrl = URL.createObjectURL(file);
+      setImagePreview(previewUrl);
+      
+      setIsUploadingImage(true);
       const success = await uploadMiniatureImage(formData.id, file);
       if (success) {
         const newStatus = await checkMiniatureImageStatus(formData.id);
         setImageStatus(newStatus);
+        const newTimestamp = Date.now();
+        if (onImageUpdate) {
+          onImageUpdate(newTimestamp);
+        }
+        
+        // Update the cache with the new timestamp
+        queryClient.setQueryData(['minis'], (oldData: any) => {
+          if (!Array.isArray(oldData)) return oldData;
+          return oldData.map((mini: Mini) =>
+            mini.id === formData.id
+              ? { 
+                  ...mini, 
+                  imageStatus: newStatus,
+                  imageTimestamp: newTimestamp 
+                }
+              : mini
+          );
+        });
+
+        setNotification({
+          show: true,
+          title: 'Success',
+          message: 'Image uploaded successfully',
+          color: 'green'
+        });
+      } else {
+        // Revert to previous state on upload failure
+        setImagePreview(previousPreview);
+        setImageStatus(previousImageStatus);
+        throw new Error('Failed to upload image');
+      }
+    } catch (error) {
+      // Revert to previous state on any error
+      setImagePreview(previousPreview);
+      setImageStatus(previousImageStatus);
+      if (error instanceof Error && error.message !== 'Image must be square') {
+        setNotification({
+          show: true,
+          title: 'Error',
+          message: 'Failed to upload image',
+          color: 'red'
+        });
+      }
+    } finally {
+      setIsUploadingImage(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Add this before the handleImageDelete function
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.style.borderColor = 'var(--mantine-color-dark-3)';
+    e.currentTarget.style.backgroundColor = 'var(--mantine-color-dark-4)';
+    
+    const file = e.dataTransfer?.files[0];
+    if (!file || !formData?.id) return;
+
+    // Store current state in case we need to revert
+    const previousImageStatus = { ...imageStatus };
+    const previousPreview = imagePreview;
+
+    try {
+      await validateImageRatio(file);
+      // Set preview immediately after validation succeeds
+      const previewUrl = URL.createObjectURL(file);
+      setImagePreview(previewUrl);
+      
+      setIsUploadingImage(true);
+      const success = await uploadMiniatureImage(formData.id, file);
+      if (success) {
+        const newStatus = await checkMiniatureImageStatus(formData.id);
+        setImageStatus(newStatus);
+        const newTimestamp = Date.now();
+        if (onImageUpdate) {
+          onImageUpdate(newTimestamp);
+        }
+        
+        // Update the cache with the new timestamp
+        queryClient.setQueryData(['minis'], (oldData: any) => {
+          if (!Array.isArray(oldData)) return oldData;
+          return oldData.map((mini: Mini) =>
+            mini.id === formData.id
+              ? { 
+                  ...mini, 
+                  imageStatus: newStatus,
+                  imageTimestamp: newTimestamp 
+                }
+              : mini
+          );
+        });
+
+        setNotification({
+          show: true,
+          title: 'Success',
+          message: 'Image uploaded successfully',
+          color: 'green'
+        });
+      } else {
+        // Revert to previous state on upload failure
+        setImagePreview(previousPreview);
+        setImageStatus(previousImageStatus);
+        throw new Error('Failed to upload image');
+      }
+    } catch (error) {
+      // Revert to previous state on any error
+      setImagePreview(previousPreview);
+      setImageStatus(previousImageStatus);
+      if (error instanceof Error && error.message !== 'Image must be square') {
+        setNotification({
+          show: true,
+          title: 'Error',
+          message: 'Failed to upload image',
+          color: 'red'
+        });
       }
     } finally {
       setIsUploadingImage(false);
     }
   };
 
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.style.borderColor = 'var(--mantine-color-blue-5)';
+    e.currentTarget.style.backgroundColor = 'var(--mantine-color-dark-5)';
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.style.borderColor = 'var(--mantine-color-dark-3)';
+    e.currentTarget.style.backgroundColor = 'var(--mantine-color-dark-4)';
+  };
+
+  // Update the handleImageDelete function
   const handleImageDelete = async () => {
     if (!formData?.id) return;
 
-    setIsDeletingImage(true);
-    try {
-      await deleteMiniatureImage(formData.id);
-      setImageStatus({ hasOriginal: false, hasThumb: false });
-    } finally {
-      setIsDeletingImage(false);
-    }
+    // Show confirmation modal
+    modals.openConfirmModal({
+      title: 'Delete Image',
+      children: (
+        <Text size="sm">
+          Are you sure you want to delete this image? This action cannot be undone.
+        </Text>
+      ),
+      labels: { confirm: 'Delete', cancel: 'Cancel' },
+      confirmProps: { color: 'red' },
+      onConfirm: async () => {
+        setIsDeletingImage(true);
+        try {
+          await deleteMiniatureImage(formData.id);
+          // Clear both preview and status
+          setImagePreview(null);
+          setImageStatus({ hasOriginal: false, hasThumb: false });
+          
+          // Update the cache to reflect the image deletion
+          queryClient.setQueryData(['minis'], (oldData: any) => {
+            if (!Array.isArray(oldData)) return oldData;
+            return oldData.map((mini: Mini) =>
+              mini.id === formData.id
+                ? { ...mini, imageStatus: { hasOriginal: false, hasThumb: false } }
+                : mini
+            );
+          });
+
+          setNotification({
+            show: true,
+            title: 'Success',
+            message: 'Image deleted successfully',
+            color: 'green'
+          });
+        } catch (error) {
+          setNotification({
+            show: true,
+            title: 'Error',
+            message: 'Failed to delete image',
+            color: 'red'
+          });
+        } finally {
+          setIsDeletingImage(false);
+        }
+      }
+    });
   };
 
   // Add an effect to refetch data when modal closes
@@ -1055,41 +1281,80 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  border: '1px solid var(--mantine-color-dark-3)',
+                  border: '2px solid var(--mantine-color-dark-3)',
                   position: 'relative',
                   width: '100%',
-                  overflow: 'hidden'
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  transition: 'all 200ms ease'
                 }}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
               >
-                {imageStatus.hasOriginal ? (
-                  <img 
-                    src={formData?.id ? getMiniatureImagePath(formData.id, 'original') : ''}
-                    alt={formData?.name}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'contain'
-                    }}
-                  />
+                {(imageStatus.hasOriginal || imagePreview) ? (
+                  <>
+                    <Box
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        position: 'relative'
+                      }}
+                    >
+                      <img 
+                        src={imagePreview || (formData?.id ? getMiniatureImagePath(
+                          formData.id, 
+                          'original',
+                          Date.now()
+                        ) : '')}
+                        alt={formData?.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain',
+                          opacity: 0,
+                          transition: 'opacity 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                          transform: 'scale(0.8)'
+                        }}
+                        onLoad={(e) => {
+                          const img = e.currentTarget;
+                          img.style.opacity = '1';
+                          img.style.transform = 'scale(1)';
+                        }}
+                      />
+                      <ActionIcon
+                        variant="filled"
+                        color="red"
+                        size="sm"
+                        style={{
+                          position: 'absolute',
+                          bottom: 8,
+                          left: 8,
+                          zIndex: 2
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleImageDelete();
+                        }}
+                      >
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Box>
+                  </>
                 ) : (
-                  <IconPhoto style={{ width: '40%', height: '40%', opacity: 0.5 }} />
-                )}
-
-                {/* Upload trigger button - show when no image */}
-                {!imageStatus.hasOriginal && !isUploadingImage && (
-                  <Button
-                    variant="light"
-                    size="xs"
-                    onClick={() => fileInputRef.current?.click()}
-                    style={{
-                      position: 'absolute',
-                      bottom: 8,
-                      right: 8,
-                      opacity: 0.7
-                    }}
-                  >
-                    Upload Image
-                  </Button>
+                  <Stack align="center" gap="xs">
+                    <IconPhoto style={{ width: '40%', height: '40%', opacity: 0.5 }} />
+                    <Box 
+                      style={{ 
+                        border: '2px dashed var(--mantine-color-dark-2)',
+                        borderRadius: 'var(--mantine-radius-sm)',
+                        padding: '8px 16px'
+                      }}
+                    >
+                      <Text size="sm" c="dimmed">Drop image here or click to upload</Text>
+                    </Box>
+                  </Stack>
                 )}
 
                 {/* Hidden file input */}
@@ -1097,43 +1362,15 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
                   type="file"
                   ref={fileInputRef}
                   style={{ display: 'none' }}
-                  onChange={handleImageUpload}
-                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setImageFile(file);
+                      setImagePreview(URL.createObjectURL(file));
+                    }
+                  }}
+                  accept="image/*"
                 />
-
-                {/* Delete button - show when image exists */}
-                {imageStatus.hasOriginal && !isDeletingImage && (
-                  <Button 
-                    variant="light"
-                    color="red"
-                    size="xs"
-                    onClick={() => {
-                      modals.openConfirmModal({
-                        title: 'Delete Image',
-                        children: (
-                          <Text size="sm">
-                            Are you sure you want to delete this image? This action cannot be undone.
-                          </Text>
-                        ),
-                        labels: { confirm: 'Delete', cancel: 'Cancel' },
-                        confirmProps: { color: 'red' },
-                        onConfirm: handleImageDelete
-                      });
-                    }}
-                    style={{
-                      position: 'absolute',
-                      top: 8,
-                      right: 8,
-                      opacity: 0.7,
-                      transition: 'opacity 0.2s ease',
-                      '&:hover': {
-                        opacity: 1
-                      }
-                    }}
-                  >
-                    Delete
-                  </Button>
-                )}
 
                 {/* Loading states */}
                 {(isUploadingImage || isDeletingImage) && (
@@ -1155,73 +1392,90 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
                 )}
               </Box>
 
-              {/* Rest of the left column */}
-              <Select
-                label="Base Size"
-                value={formData?.base_size_id?.toString()}
-                onChange={(value) => setFormData(prev => prev ? { ...prev, base_size_id: parseInt(value || '3') } : null)}
-                data={baseSizes?.map((option: BaseSize) => ({
-                  value: option.id.toString(),
-                  label: option.base_size_name.charAt(0).toUpperCase() + option.base_size_name.slice(1)
-                })) || []}
-                disabled={isLoadingBaseSizes}
-              />
-              <Select
-                label="Painted By"
-                value={formData?.painted_by_id?.toString()}
-                onChange={(value) => setFormData(prev => prev ? { ...prev, painted_by_id: parseInt(value || '1') } : null)}
-                data={paintedByOptions?.map((option: PaintedBy) => ({
-                  value: option.id.toString(),
-                  label: option.painted_by_name.charAt(0).toUpperCase() + option.painted_by_name.slice(1)
-                })) || []}
-                disabled={isLoadingPaintedBy}
-              />
-              <TextInput
-                label="Location"
-                value={formData?.location || ''}
-                onChange={(e) => handleLocationChange(e.target.value)}
-                error={locationError}
-                required
-                placeholder="Enter storage location"
-              />
+              {/* Base Size and Painted By row */}
+              <Group grow>
+                <Select
+                  label="Base Size"
+                  value={formData?.base_size_id?.toString()}
+                  onChange={(value) => setFormData(prev => prev ? { ...prev, base_size_id: parseInt(value || '3') } : null)}
+                  data={baseSizes?.map((option: BaseSize) => ({
+                    value: option.id.toString(),
+                    label: option.base_size_name.charAt(0).toUpperCase() + option.base_size_name.slice(1)
+                  })) || []}
+                  disabled={isLoadingBaseSizes}
+                />
+                <Select
+                  label="Painted By"
+                  value={formData?.painted_by_id?.toString()}
+                  onChange={(value) => setFormData(prev => prev ? { ...prev, painted_by_id: parseInt(value || '1') } : null)}
+                  data={paintedByOptions?.map((option: PaintedBy) => ({
+                    value: option.id.toString(),
+                    label: option.painted_by_name.charAt(0).toUpperCase() + option.painted_by_name.slice(1)
+                  })) || []}
+                  disabled={isLoadingPaintedBy}
+                />
+              </Group>
+
+              {/* Location and Quantity row */}
+              <Group>
+                <TextInput
+                  label="Location"
+                  value={formData?.location || ''}
+                  onChange={(e) => handleLocationChange(e.target.value)}
+                  error={locationError}
+                  required
+                  placeholder="Enter storage location"
+                  style={{ flex: 1 }}
+                />
+                <NumberInput
+                  label="Quantity"
+                  value={formData?.quantity || 1}
+                  onChange={(value) => setFormData(prev => prev ? { ...prev, quantity: typeof value === 'number' ? value : 1 } : null)}
+                  min={0}
+                  max={99}
+                  required
+                  style={{ width: 70 }}
+                  clampBehavior="strict"
+                />
+              </Group>
             </Stack>
           </Grid.Col>
 
           {/* Right Column - 70% width */}
           <Grid.Col span={8}>
             <Stack>
-              <TextInput
-                label="Name"
-                value={formData?.name || ''}
-                onChange={(e) => handleNameChange(e.target.value)}
-                error={nameError}
-                required
-                placeholder="Enter miniature name"
-                data-autofocus
-              />
-              <Select
-                label="Product Set"
-                placeholder="Select a product set"
-                value={formData?.product_set_id?.toString()}
-                onChange={(value) => setFormData(prev => prev ? { 
-                  ...prev, 
-                  product_set_id: value ? parseInt(value) : null,
-                  product_set_name: null,
-                  product_line_name: null,
-                  company_name: null
-                } : null)}
-                data={productSets ?? []}
-                disabled={isLoadingProductSets}
-                searchable
-                clearable
-              />
-              <NumberInput
-                label="Quantity"
-                value={formData?.quantity || 1}
-                onChange={(value) => setFormData(prev => prev ? { ...prev, quantity: typeof value === 'number' ? value : 1 } : null)}
-                min={0}
-                required
-              />
+              {/* Name and Product Set row */}
+              <Group grow>
+                <TextInput
+                  size="sm"
+                  label="Name"
+                  value={formData?.name || ''}
+                  onChange={(e) => handleNameChange(e.target.value)}
+                  error={nameError}
+                  required
+                  placeholder="Enter miniature name"
+                  data-autofocus
+                />
+                <Select
+                  size="sm"
+                  label="Product Set"
+                  placeholder="Select a product set"
+                  value={formData?.product_set_id?.toString()}
+                  onChange={(value) => setFormData(prev => prev ? { 
+                    ...prev, 
+                    product_set_id: value ? parseInt(value) : null,
+                    product_set_name: null,
+                    product_line_name: null,
+                    company_name: null
+                  } : null)}
+                  data={productSets ?? []}
+                  disabled={isLoadingProductSets}
+                  searchable
+                  clearable
+                />
+              </Group>
+
+              {/* Tags */}
               <TagsInput
                 label="Tags"
                 description="Enter existing tags or create new ones"
@@ -1242,13 +1496,16 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
                 splitChars={[',', ' ', 'Enter']}
                 maxTags={50}
                 clearable
-                style={{ flex: 1 }}
               />
+
+              {/* Description */}
               <Textarea
                 label="Description"
                 value={formData?.description || ''}
                 onChange={(e) => setFormData(prev => prev ? { ...prev, description: e.target.value } : null)}
-                minRows={3}
+                minRows={6}
+                maxRows={6}
+                autosize={false}
                 placeholder="Enter miniature description..."
               />
 
@@ -1312,7 +1569,7 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
                   </Combobox>
 
                   {/* Selected Types Table */}
-                  {formData?.types && formData.types.length > 0 && (
+                  {formData?.types && formData.types.length > 0 ? (
                     <>
                       <Box 
                         style={{ 
@@ -1445,6 +1702,8 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
                         </Group>
                       )}
                     </>
+                  ) : (
+                    <Text c="dimmed" ta="center" py="xs" size="sm">Select a miniature type for this mini</Text>
                   )}
                 </Stack>
               </Box>
@@ -1464,6 +1723,29 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
           </Button>
         </Group>
       </form>
+
+      {/* Notification */}
+      {notification.show && (
+        <Notification
+          title={notification.title}
+          color={notification.color}
+          onClose={() => setNotification(prev => ({ ...prev, show: false }))}
+          icon={
+            notification.color === 'red' ? <IconX size={18} /> : 
+            notification.color === 'yellow' ? <IconCheck size={18} /> :
+            <IconCheck size={18} />
+          }
+          style={{
+            position: 'fixed',
+            top: 20,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1000
+          }}
+        >
+          {notification.message}
+        </Notification>
+      )}
     </AdminModal>
   );
 };
@@ -1476,6 +1758,7 @@ export default function Miniatures() {
   const [viewType, setViewType] = useState<ViewType>('table');
   const [currentPage, setCurrentPage] = useState(1);
   const [filterText, setFilterText] = useState('');
+  const [imageTimestamp, setImageTimestamp] = useState<number>(Date.now());
   const filterInputRef = useRef<HTMLInputElement>(null);
 
   // Focus the filter input
@@ -1560,7 +1843,8 @@ export default function Miniatures() {
       minis: filteredMinis || [],
       onEdit: setEditingMini,
       currentPage,
-      onPageChange: handlePageChange
+      onPageChange: handlePageChange,
+      imageTimestamp
     };
 
     return (() => {
@@ -1658,6 +1942,7 @@ export default function Miniatures() {
         opened={!!editingMini}
         onClose={() => setEditingMini(null)}
         miniature={editingMini}
+        onImageUpdate={setImageTimestamp}
       />
 
       {/* Add Modal */}
