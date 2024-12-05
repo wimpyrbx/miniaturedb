@@ -1071,6 +1071,121 @@ app.delete('/api/minis/:id/image', requireAuth, (req, res) => {
   }
 });
 
+// Types endpoints
+app.get('/api/types', requireAuth, (_req, res) => {
+  try {
+    const types = minisDb.prepare(`
+      SELECT mt.*, 
+             COUNT(DISTINCT mtt.mini_id) as mini_count
+      FROM mini_types mt
+      LEFT JOIN mini_to_types mtt ON mt.id = mtt.type_id
+      GROUP BY mt.id
+      ORDER BY mt.name
+    `).all();
+    res.json(types);
+  } catch (error) {
+    console.error('Error fetching types:', error);
+    res.status(500).json({ error: 'Failed to fetch types' });
+  }
+});
+
+// Update mini types endpoint
+app.put('/api/minis/:id/types', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { types } = req.body; // Array of { id: number, name: string, proxy_type: boolean }
+
+    const updateTypes = minisDb.transaction((miniId: number, typeData: Array<{ id: number, proxy_type: boolean }>) => {
+      // Delete all existing type relationships
+      minisDb.prepare('DELETE FROM mini_to_types WHERE mini_id = ?').run(miniId);
+      
+      // Add all type relationships
+      const insertRelationStmt = minisDb.prepare(
+        'INSERT INTO mini_to_types (mini_id, type_id, proxy_type) VALUES (?, ?, ?)'
+      );
+      
+      for (const type of typeData) {
+        insertRelationStmt.run(miniId, type.id, type.proxy_type ? 1 : 0);
+      }
+      
+      // Return the updated mini with types
+      return minisDb.prepare(`
+        SELECT 
+          m.*,
+          json_group_array(json_object(
+            'id', mt.id,
+            'name', mt.name,
+            'proxy_type', mtt.proxy_type
+          )) as type_info
+        FROM minis m
+        LEFT JOIN mini_to_types mtt ON m.id = mtt.mini_id
+        LEFT JOIN mini_types mt ON mtt.type_id = mt.id
+        WHERE m.id = ?
+        GROUP BY m.id
+      `).get(miniId);
+    });
+
+    const result = updateTypes(parseInt(id), types);
+    res.json(result);
+  } catch (error) {
+    console.error('Error updating mini types:', error);
+    res.status(500).json({ error: 'Failed to update mini types' });
+  }
+});
+
+// Update the miniatures endpoint to include types
+app.get('/api/miniatures', requireAuth, (_req, res) => {
+  try {
+    // First get all minis with their basic info
+    const minis = minisDb.prepare(`
+      SELECT 
+        m.*,
+        bs.base_size_name,
+        pb.painted_by_name,
+        ps.name as product_set_name,
+        pl.name as product_line_name,
+        pc.name as company_name
+      FROM minis m
+      LEFT JOIN base_sizes bs ON m.base_size_id = bs.id
+      LEFT JOIN painted_by pb ON m.painted_by_id = pb.id
+      LEFT JOIN product_sets ps ON m.product_set_id = ps.id
+      LEFT JOIN product_lines pl ON ps.product_line_id = pl.id
+      LEFT JOIN production_companies pc ON pl.company_id = pc.id
+      ORDER BY m.name
+    `).all() as Mini[];
+
+    // For each mini, get its tags and types
+    const minisWithDetails = minis.map(mini => {
+      const tags = minisDb.prepare(`
+        SELECT t.id, t.name
+        FROM tags t
+        JOIN mini_to_tags mtt ON t.id = mtt.tag_id
+        WHERE mtt.mini_id = ?
+        ORDER BY t.name
+      `).all(mini.id) as Tag[];
+
+      const types = minisDb.prepare(`
+        SELECT mt.id, mt.name, mtt.proxy_type
+        FROM mini_types mt
+        JOIN mini_to_types mtt ON mt.id = mtt.type_id
+        WHERE mtt.mini_id = ?
+        ORDER BY mtt.proxy_type, mt.name
+      `).all(mini.id) as MiniType[];
+
+      return {
+        ...mini,
+        tags,
+        types
+      };
+    });
+
+    res.json(minisWithDetails);
+  } catch (error) {
+    console.error('Error fetching minis:', error);
+    res.status(500).json({ error: 'Failed to fetch minis' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 }); 

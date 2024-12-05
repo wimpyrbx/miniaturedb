@@ -1,11 +1,10 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { useState } from 'react';
-import { Stack, Title, Text, Group, Card, Button, TextInput, MultiSelect, Select, Textarea, NumberInput, useMantineColorScheme, Radio, TagsInput, Badge, Center, Loader, SegmentedControl, Pagination, Box, Grid } from '@mantine/core';
+import { Stack, Title, Text, Group, Card, Button, TextInput, MultiSelect, Select, Textarea, NumberInput, useMantineColorScheme, Radio, TagsInput, Badge, Center, Loader, SegmentedControl, Pagination, Box, Grid, Paper, UnstyledButton, ActionIcon, Table, MantineTheme, Combobox, useCombobox, InputBase } from '@mantine/core';
 import { DataTable } from '../components/ui/table/DataTable';
-import { Table } from '@mantine/core';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TableActions } from '../components/ui/tableactions/TableActions';
-import { IconEdit, IconPlus, IconPhoto, IconTable, IconLayoutGrid, IconLayoutList, IconSearch, IconPackage, IconTrash } from '@tabler/icons-react';
+import { IconEdit, IconPlus, IconPhoto, IconTable, IconLayoutGrid, IconLayoutList, IconSearch, IconPackage, IconTrash, IconX, IconCheck } from '@tabler/icons-react';
 import { AdminModal } from '../components/AdminModal';
 import { getMiniatureImagePath, checkMiniatureImageStatus, uploadMiniatureImage, deleteMiniatureImage, ImageStatus } from '../utils/imageUtils';
 import { modals } from '@mantine/modals';
@@ -715,6 +714,121 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
     }
   });
 
+  // Query for all available types
+  const { data: availableTypes } = useQuery({
+    queryKey: ['miniature_types'],
+    queryFn: async () => {
+      const response = await fetch('/api/types');
+      if (!response.ok) {
+        throw new Error('Failed to fetch miniature types');
+      }
+      return response.json();
+    }
+  });
+
+  // State for type search
+  const [typeSearchValue, setTypeSearchValue] = useState('');
+  
+  // Combobox state
+  const combobox = useCombobox({
+    onDropdownClose: () => {
+      setTypeSearchValue('');
+    }
+  });
+
+  // Filter available types based on search
+  const filteredTypes = useMemo(() => {
+    if (!availableTypes || !typeSearchValue) return [];
+    return availableTypes
+      .filter((type: MiniType) => 
+        type.name.toLowerCase().includes(typeSearchValue.toLowerCase()) &&
+        !formData?.types?.some(t => t.id === type.id)
+      )
+      .slice(0, 5);
+  }, [availableTypes, typeSearchValue, formData?.types]);
+
+  // Handle adding a type
+  const handleAddType = (typeToAdd: MiniType) => {
+    setFormData(prev => {
+      if (!prev) return null;
+      
+      // If it's the only type, set it as main
+      const isOnlyType = !prev.types || prev.types.length === 0;
+      
+      const newType = {
+        id: typeToAdd.id,
+        name: typeToAdd.name,
+        proxy_type: !isOnlyType // false if it's the only type, true otherwise
+      };
+
+      return {
+        ...prev,
+        types: [...(prev.types || []), newType]
+      };
+    });
+    setTypeSearchValue(''); // Clear search after adding
+  };
+
+  // Handle removing a type
+  const handleRemoveType = (typeId: number) => {
+    setFormData(prev => {
+      if (!prev) return null;
+      
+      const wasMain = prev.types.find(t => t.id === typeId)?.proxy_type === false;
+      const remainingTypes = prev.types.filter(t => t.id !== typeId);
+      
+      // If we removed the main type and there are other types, set the first one as main
+      if (wasMain && remainingTypes.length > 0) {
+        remainingTypes[0].proxy_type = false;
+      }
+
+      return {
+        ...prev,
+        types: remainingTypes
+      };
+    });
+  };
+
+  // Handle setting a type as main
+  const handleSetMainType = (typeId: number) => {
+    setFormData(prev => {
+      if (!prev) return null;
+      
+      return {
+        ...prev,
+        types: prev.types.map(t => ({
+          ...t,
+          proxy_type: t.id !== typeId // true for all except the selected main type
+        }))
+      };
+    });
+  };
+
+  // Query for categories of selected types
+  const { data: typeCategories } = useQuery({
+    queryKey: ['type_categories', formData?.types?.map(t => t.id)],
+    queryFn: async () => {
+      if (!formData?.types?.length) return [];
+      
+      // Get categories for each type
+      const promises = formData.types.map(type => 
+        fetch(`/api/classification/types/${type.id}/categories`)
+          .then(res => res.json())
+      );
+      
+      const allCategories = await Promise.all(promises);
+      
+      // Consolidate unique categories
+      const uniqueCategories = new Map();
+      allCategories.flat().forEach(cat => {
+        uniqueCategories.set(cat.id, cat);
+      });
+      
+      return Array.from(uniqueCategories.values());
+    },
+    enabled: !!formData?.types?.length
+  });
+
   useEffect(() => {
     if (opened && miniature) {
       setFormData(miniature);
@@ -1013,6 +1127,162 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
                 minRows={3}
                 placeholder="Enter miniature description..."
               />
+
+              {/* Types Section */}
+              <Box 
+                p="sm"
+                style={{ 
+                  border: '1px solid var(--mantine-color-default-border)',
+                  borderRadius: 'var(--mantine-radius-sm)',
+                  backgroundColor: 'var(--mantine-color-body)'
+                }}
+              >
+                <Stack gap="xs">
+                  <Text fw={500}>Miniature Type</Text>
+                  
+                  {/* Type Search */}
+                  <Combobox
+                    store={combobox}
+                    onOptionSubmit={(val) => {
+                      const selectedType = availableTypes?.find(t => t.id.toString() === val);
+                      if (selectedType) {
+                        handleAddType(selectedType);
+                        combobox.closeDropdown();
+                      }
+                    }}
+                  >
+                    <Combobox.Target>
+                      <InputBase
+                        placeholder="Search for types..."
+                        value={typeSearchValue}
+                        onChange={(event) => {
+                          setTypeSearchValue(event.currentTarget.value);
+                          combobox.openDropdown();
+                        }}
+                        onClick={() => combobox.openDropdown()}
+                        rightSection={<Combobox.Chevron />}
+                      />
+                    </Combobox.Target>
+
+                    <Combobox.Dropdown hidden={filteredTypes.length === 0}>
+                      <Combobox.Options>
+                        {filteredTypes.map((type: MiniType) => (
+                          <Combobox.Option
+                            key={type.id}
+                            value={type.id.toString()}
+                          >
+                            {type.name}
+                          </Combobox.Option>
+                        ))}
+                      </Combobox.Options>
+                    </Combobox.Dropdown>
+                  </Combobox>
+
+                  {/* Selected Types Table */}
+                  {formData?.types && formData.types.length > 0 && (
+                    <>
+                      <Box 
+                        style={{ 
+                          border: '1px solid var(--mantine-color-default-border)',
+                          borderRadius: 'var(--mantine-radius-sm)',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        <Table 
+                          highlightOnHover 
+                          withColumnBorders={false}
+                          withTableBorder={false}
+                          horizontalSpacing="sm"
+                        >
+                          <Table.Thead
+                            style={{
+                              backgroundColor: 'var(--mantine-color-primary-light)',
+                              borderBottom: '1px solid var(--mantine-color-default-border)'
+                            }}
+                          >
+                            <Table.Tr>
+                              <Table.Th style={{ color: 'var(--mantine-color-primary-text)' }}>Type</Table.Th>
+                              <Table.Th style={{ width: 100, textAlign: 'center', color: 'var(--mantine-color-primary-text)' }}>Main</Table.Th>
+                              <Table.Th style={{ width: 70, textAlign: 'center', color: 'var(--mantine-color-primary-text)' }}>Actions</Table.Th>
+                            </Table.Tr>
+                          </Table.Thead>
+                          <Table.Tbody>
+                            {formData.types.map((type, index) => (
+                              <Table.Tr key={type.id}>
+                                <Table.Td
+                                  style={{
+                                    borderBottom: index === formData.types.length - 1 ? 'none' : '1px solid var(--mantine-color-default-border)'
+                                  }}
+                                >
+                                  {type.name}
+                                </Table.Td>
+                                <Table.Td 
+                                  style={{ 
+                                    textAlign: 'center',
+                                    borderBottom: index === formData.types.length - 1 ? 'none' : '1px solid var(--mantine-color-default-border)'
+                                  }}
+                                >
+                                  <ActionIcon
+                                    variant={!type.proxy_type ? "filled" : "subtle"}
+                                    color={!type.proxy_type ? "green" : "gray"}
+                                    onClick={() => handleSetMainType(type.id)}
+                                    size="sm"
+                                    aria-label="Set as main type"
+                                    style={{
+                                      opacity: !type.proxy_type ? 1 : 0.25
+                                    }}
+                                  >
+                                    <IconCheck 
+                                      size={16}
+                                      style={{ 
+                                        opacity: !type.proxy_type ? 1 : 0.5 
+                                      }} 
+                                    />
+                                  </ActionIcon>
+                                </Table.Td>
+                                <Table.Td 
+                                  style={{ 
+                                    textAlign: 'center',
+                                    borderBottom: index === formData.types.length - 1 ? 'none' : '1px solid var(--mantine-color-default-border)'
+                                  }}
+                                >
+                                  <ActionIcon
+                                    color="red"
+                                    variant="subtle"
+                                    onClick={() => handleRemoveType(type.id)}
+                                    size="sm"
+                                  >
+                                    <IconX size={16} />
+                                  </ActionIcon>
+                                </Table.Td>
+                              </Table.Tr>
+                            ))}
+                          </Table.Tbody>
+                        </Table>
+                      </Box>
+
+                      {/* Categories Section */}
+                      {typeCategories && typeCategories.length > 0 && (
+                        <Group gap="xs" mt="xs">
+                          <Text size="sm" c="dimmed">Categories:</Text>
+                          {typeCategories
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map(category => (
+                              <Badge
+                                key={category.id}
+                                size="sm"
+                                variant="light"
+                                color="gray"
+                              >
+                                {category.name}
+                              </Badge>
+                            ))}
+                        </Group>
+                      )}
+                    </>
+                  )}
+                </Stack>
+              </Box>
             </Stack>
           </Grid.Col>
         </Grid>
