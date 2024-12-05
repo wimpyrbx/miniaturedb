@@ -4,7 +4,7 @@ import { Stack, Title, Text, Group, Card, Button, TextInput, MultiSelect, Select
 import { DataTable } from '../components/ui/table/DataTable';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TableActions } from '../components/ui/tableactions/TableActions';
-import { IconEdit, IconPlus, IconPhoto, IconTable, IconLayoutGrid, IconLayoutList, IconSearch, IconPackage, IconTrash, IconX, IconCheck, IconPhotoUp, IconClock } from '@tabler/icons-react';
+import { IconEdit, IconPlus, IconPhoto, IconTable, IconLayoutGrid, IconLayoutList, IconSearch, IconPackage, IconTrash, IconX, IconCheck, IconPhotoUp, IconClock, IconUpload } from '@tabler/icons-react';
 import { AdminModal } from '../components/AdminModal';
 import { getMiniatureImagePath, checkMiniatureImageStatus, uploadMiniatureImage, deleteMiniatureImage, ImageStatus } from '../utils/imageUtils';
 import { modals } from '@mantine/modals';
@@ -1007,6 +1007,9 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
   }>({ show: false, title: '', message: '', color: 'blue' });
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [imageTimestamp, setImageTimestamp] = useState(Date.now());
+  const [pendingImageUpload, setPendingImageUpload] = useState<File | null>(null);
+  // Add state for animation
+  const [showImage, setShowImage] = useState(false);
 
   // Validate name field
   const validateName = (name: string): string | null => {
@@ -1054,124 +1057,212 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
     return !nameValidationError && !locationValidationError;
   };
 
+  // Initialize formData for adding a new miniature
+  useEffect(() => {
+    if (opened) {
+      if (miniature) {
+        setFormData(miniature);
+        setImagePreview(null); // Clear any previous preview
+      } else {
+        const now = new Date().toISOString();
+        setFormData({
+          id: 0,
+          name: '',
+          description: '',
+          location: '',
+          quantity: 1,
+          painted_by_id: 1,
+          base_size_id: 3,
+          product_set_id: null,
+          types: [],
+          tags: [],
+          categories: [],
+          category_names: [],
+          base_size_name: null,
+          painted_by_name: null,
+          product_set_name: null,
+          product_line_name: null,
+          company_name: null,
+          imageStatus: { hasOriginal: false, hasThumb: false },
+          imageTimestamp: Date.now(),
+          created_at: now,
+          updated_at: now
+        });
+        setImagePreview(null); // Clear any previous preview
+      }
+      setPendingImageUpload(null); // Clear any pending upload
+      setNameError(null);
+      setLocationError(null);
+      setIsSubmitting(false);
+    }
+  }, [opened, miniature]);
+
   // Validate before submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData) return;
 
+    if (!validateForm()) {
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // First update basic miniature data
-      const basicData = {
-        name: formData.name.trim(),
-        location: formData.location.trim(),
-        description: formData.description,
-        quantity: formData.quantity,
-        painted_by_id: formData.painted_by_id,
-        base_size_id: formData.base_size_id,
-        product_set_id: formData.product_set_id
-      };
+      if (miniature) {
+        // Existing code for updating a miniature
+        const basicData = {
+          name: formData.name.trim(),
+          location: formData.location.trim(),
+          description: formData.description,
+          quantity: formData.quantity,
+          painted_by_id: formData.painted_by_id,
+          base_size_id: formData.base_size_id,
+          product_set_id: formData.product_set_id
+        };
 
-      console.log('Updating basic data:', basicData);
-      const response = await fetch(`/api/minis/${formData.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(basicData),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Basic data update failed:', errorText);
-        throw new Error('Failed to update miniature');
-      }
-
-      const updatedBasicData = await response.json();
-      console.log('Basic data updated:', updatedBasicData);
-
-      // Update types
-      const typeUpdateData = {
-        types: formData.types.map(type => ({
-          id: type.id,
-          proxy_type: type.proxy_type ? 1 : 0
-        }))
-      };
-      console.log('Updating types:', typeUpdateData);
-
-      const typesResponse = await fetch(`/api/minis/${formData.id}/types`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(typeUpdateData),
-      });
-
-      if (!typesResponse.ok) {
-        const errorText = await typesResponse.text();
-        console.error('Types update failed:', errorText);
-        throw new Error('Failed to update types');
-      }
-
-      const typesData = await typesResponse.json();
-      console.log('Types data received:', typesData);
-      const updatedTypes = JSON.parse(typesData.type_info || '[]').filter((t: any) => t.id !== null);
-      console.log('Parsed types:', updatedTypes);
-
-      // Update tags if they've changed
-      const currentTags = miniature?.tags || [];
-      const newTags = formData.tags || [];
-      
-      if (JSON.stringify(currentTags) !== JSON.stringify(newTags)) {
-        console.log('Updating tags:', newTags);
-        await updateTagsMutation.mutateAsync({
-          miniId: formData.id,
-          tags: newTags
+        // Update basic data
+        const response = await fetch(`/api/minis/${formData.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(basicData),
         });
-      }
 
-      // Handle image upload if needed
-      let newImageStatus = imageStatus;
-      if (imageFile) {
-        console.log('Uploading image');
-        await uploadMiniatureImage(formData.id, imageFile);
-        newImageStatus = { hasOriginal: true, hasThumb: true };
-      }
-
-      // Fetch the complete updated miniature to ensure we have all data
-      const getMiniResponse = await fetch(`/api/miniatures`);
-      if (!getMiniResponse.ok) {
-        throw new Error('Failed to fetch updated miniature data');
-      }
-      const allMinis = await getMiniResponse.json();
-      const completeUpdatedMini = {
-        ...allMinis.find((mini: Mini) => mini.id === formData.id),
-        imageStatus: newImageStatus
-      };
-      console.log('Complete updated mini:', completeUpdatedMini);
-
-      // Update the cache with the new data
-      queryClient.setQueryData(['minis'], (oldData: any) => {
-        if (!oldData) return oldData;
-
-        // If data is a direct array (which it should be based on the query)
-        if (Array.isArray(oldData)) {
-          console.log('Updating minis array in cache');
-          return oldData.map((item: Mini) =>
-            item.id === completeUpdatedMini.id ? {
-              ...completeUpdatedMini,
-              imageStatus: newImageStatus
-            } : item
-          );
+        if (!response.ok) {
+          throw new Error('Failed to update miniature');
         }
 
-        return oldData;
-      });
+        // Update types
+        await fetch(`/api/minis/${formData.id}/types`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            types: formData.types.map(type => ({
+              id: type.id,
+              proxy_type: type.proxy_type
+            }))
+          }),
+        });
 
-      onClose();
+        // Update tags
+        await fetch(`/api/minis/${formData.id}/tags`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            tags: formData.tags
+          }),
+        });
+
+        // Invalidate queries to refresh data
+        queryClient.invalidateQueries(['minis']);
+      } else {
+        // Logic for adding a new miniature
+        const newMiniatureData = {
+          name: formData.name.trim(),
+          location: formData.location.trim(),
+          description: formData.description,
+          quantity: formData.quantity,
+          painted_by_id: formData.painted_by_id,
+          base_size_id: formData.base_size_id,
+          product_set_id: formData.product_set_id,
+          types: formData.types.map(type => ({
+            id: type.id,
+            proxy_type: type.proxy_type
+          })),
+          tags: formData.tags
+        };
+
+        console.log('Sending new miniature data:', {
+          url: '/api/miniatures',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          data: newMiniatureData
+        });
+
+        const response = await fetch('/api/miniatures', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify(newMiniatureData),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Failed to add new miniature:', errorText);
+          console.error('Response status:', response.status);
+          console.error('Response headers:', Object.fromEntries(response.headers.entries()));
+          
+          // Handle unauthorized error specifically
+          if (response.status === 401) {
+            setNotification({
+              show: true,
+              title: 'Error',
+              message: 'You need to be logged in to add miniatures',
+              color: 'red'
+            });
+            // Optionally redirect to login page or trigger login modal
+            return;
+          }
+          
+          throw new Error('Failed to add new miniature');
+        }
+
+        const addedMiniature = await response.json();
+
+        // If we have a pending image upload, handle it now
+        if (pendingImageUpload) {
+          const formData = new FormData();
+          formData.append('image', pendingImageUpload);
+
+          const imageResponse = await fetch(`/api/minis/${addedMiniature.id}/image`, {
+            method: 'POST',
+            credentials: 'include',
+            body: formData,
+          });
+
+          if (!imageResponse.ok) {
+            console.error('Failed to upload image:', await imageResponse.text());
+            setNotification({
+              show: true,
+              title: 'Warning',
+              message: 'Miniature was created but image upload failed',
+              color: 'yellow'
+            });
+          }
+        }
+
+        // Update the cache with the new miniature
+        queryClient.invalidateQueries({ queryKey: ['minis'] });
+
+        // Clear the pending image upload
+        setPendingImageUpload(null);
+        setImagePreview(null);
+        
+        setNotification({
+          show: true,
+          title: 'Success',
+          message: 'Miniature added successfully',
+          color: 'green'
+        });
+        
+        onClose();
+      }
     } catch (error) {
-      console.error('Error updating miniature:', error);
+      console.error('Error handling miniature:', error);
+      setNotification({
+        show: true,
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Failed to save miniature',
+        color: 'red'
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -1379,22 +1470,6 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
     enabled: !!formData?.types?.length
   });
 
-  useEffect(() => {
-    if (opened && miniature) {
-      setFormData(miniature);
-      // Check image status when modal opens
-      checkMiniatureImageStatus(miniature.id).then(status => {
-        console.log('Image status received:', status);
-        setImageStatus(status);
-      });
-    } else {
-      setFormData(null);
-      setImageFile(null);
-      setImagePreview(null);
-      setImageStatus({ hasOriginal: false, hasThumb: false });
-    }
-  }, [opened, miniature]);
-
   // Add this effect for auto-hiding notifications
   useEffect(() => {
     if (notification.show) {
@@ -1507,79 +1582,38 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
     }
   };
 
-  // Add this before the handleImageDelete function
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    e.currentTarget.style.borderColor = 'var(--mantine-color-dark-3)';
-    e.currentTarget.style.backgroundColor = 'var(--mantine-color-dark-4)';
-    
-    const file = e.dataTransfer?.files[0];
-    if (!file || !formData?.id) return;
 
-    // Store current state in case we need to revert
-    const previousImageStatus = { ...imageStatus };
-    const previousPreview = imagePreview;
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
 
-    try {
-      await validateImageRatio(file);
-      // Set preview immediately after validation succeeds
-      const previewUrl = URL.createObjectURL(file);
-      setImagePreview(previewUrl);
-      
-      setIsUploadingImage(true);
-      const success = await uploadMiniatureImage(formData.id, file);
-      if (success) {
-        const newStatus = await checkMiniatureImageStatus(formData.id);
-        setImageStatus(newStatus);
-        const newTimestamp = Date.now();
-        if (onImageUpdate) {
-          onImageUpdate(newTimestamp);
-        }
-        
-        // Update the cache with the new timestamp
-        queryClient.setQueryData(['minis'], (oldData: any) => {
-          if (!Array.isArray(oldData)) return oldData;
-          return oldData.map((mini: Mini) =>
-            mini.id === formData.id
-              ? { 
-                  ...mini, 
-                  imageStatus: newStatus,
-                  imageTimestamp: newTimestamp 
-                }
-              : mini
-          );
-        });
-
-        setNotification({
-          show: true,
-          title: 'Success',
-          message: 'Image uploaded successfully',
-          color: 'green'
-        });
-      } else {
-        // Revert to previous state on upload failure
-        setImagePreview(previousPreview);
-        setImageStatus(previousImageStatus);
-        throw new Error('Failed to upload image');
-      }
-    } catch (error) {
-      // Revert to previous state on any error
-      setImagePreview(previousPreview);
-      setImageStatus(previousImageStatus);
-      if (error instanceof Error && error.message !== 'Image must be square') {
-        setNotification({
-          show: true,
-          title: 'Error',
-          message: 'Failed to upload image',
-          color: 'red'
-        });
-      }
-    } finally {
-      setIsUploadingImage(false);
+    // Check if it's an image
+    if (!file.type.startsWith('image/')) {
+      setNotification({
+        show: true,
+        title: 'Error',
+        message: 'Please drop an image file',
+        color: 'red'
+      });
+      return;
     }
+
+    // Store the file for upload when the form is submitted
+    setPendingImageUpload(file);
+
+    // Show preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        setImagePreview(e.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
+  // Add this before the handleImageDelete function
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1704,6 +1738,48 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
     });
   };
 
+  // Helper function to get image path
+  const getImagePath = (id: number) => {
+    const idStr = id.toString();
+    const firstDigit = idStr[0];
+    const secondDigit = idStr.length > 1 ? idStr[1] : '0';
+    return `/images/miniatures/original/${firstDigit}/${secondDigit}/${id}.webp`;
+  };
+
+  // Effect to handle modal open/close
+  useEffect(() => {
+    if (!opened) {
+      // Reset states when modal closes
+      setShowImage(false);
+      setIsImageLoading(false);
+      setImagePreview(null);
+    } else if (formData?.id && formData.imageStatus?.hasOriginal) {
+      // Initial load of existing image
+      setShowImage(false);
+      setIsImageLoading(true);
+      
+      const timer = setTimeout(() => {
+        setShowImage(true);
+      }, 200);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [opened]);
+
+  // Effect to handle only new image preview changes
+  useEffect(() => {
+    if (imagePreview) {
+      setShowImage(false);
+      setIsImageLoading(true);
+      
+      const timer = setTimeout(() => {
+        setShowImage(true);
+      }, 200);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [imagePreview]);
+
   return (
     <AdminModal
       opened={opened}
@@ -1718,143 +1794,82 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
           <Grid.Col span={4}>
             <Stack>
               {/* Image upload section */}
-              <Box
+              <div
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
                 style={{
+                  border: '1px solid var(--mantine-color-dark-4)',
+                  borderRadius: '8px',
+                  padding: '8px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  marginTop: '16px',
+                  backgroundColor: 'var(--mantine-color-dark-6)',
                   position: 'relative',
                   width: '100%',
                   aspectRatio: '1',
-                  border: '2px dashed var(--mantine-color-dark-3)',
-                  borderRadius: 'var(--mantine-radius-md)',
-                  overflow: 'hidden',
-                  cursor: 'pointer',
-                  backgroundColor: 'var(--mantine-color-dark-6)',
-                  transition: 'all 0.2s ease',
-                  '&:hover': {
-                    borderColor: 'var(--mantine-color-blue-5)',
-                    backgroundColor: 'var(--mantine-color-dark-5)',
-                  }
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden' // Prevent any image overflow during animation
                 }}
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
               >
-                {(imagePreview || (imageStatus.hasOriginal && formData?.id)) ? (
-                  <>
-                    <img
-                      src={imagePreview || getMiniatureImagePath(formData!.id, 'original', imageTimestamp)}
-                      alt="Miniature"
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'contain',
-                        opacity: isImageLoading ? 0 : 1,
-                        transition: 'opacity 0.3s ease'
-                      }}
-                      onLoad={() => setIsImageLoading(false)}
-                      onLoadStart={() => setIsImageLoading(true)}
-                    />
-                    {isImageLoading && (
-                      <Center style={{ 
-                        position: 'absolute', 
-                        top: 0, 
-                        left: 0, 
-                        right: 0, 
-                        bottom: 0,
-                        backgroundColor: 'var(--mantine-color-dark-6)',
-                        backdropFilter: 'blur(4px)'
-                      }}>
-                        <Stack align="center" gap="xs">
-                          <Loader size="sm" />
-                          <Text size="sm" c="dimmed">Loading image...</Text>
-                        </Stack>
-                      </Center>
-                    )}
-                    <Box
-                      style={{
-                        position: 'absolute',
-                        top: 8,
-                        right: 8,
-                        zIndex: 2,
-                        display: 'flex',
-                        gap: '8px'
-                      }}
-                    >
-                      <ActionIcon
-                        color="red"
-                        variant="filled"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleImageDelete();
-                        }}
-                        style={{
-                          backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                          backdropFilter: 'blur(4px)',
-                          '&:hover': {
-                            backgroundColor: 'rgba(225, 45, 45, 0.8)'
-                          }
-                        }}
-                      >
-                        <IconTrash size={16} />
-                      </ActionIcon>
-                    </Box>
-                  </>
+                {imagePreview ? (
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    style={{
+                      width: 'calc(100% - 16px)',
+                      height: 'calc(100% - 16px)',
+                      objectFit: 'contain',
+                      opacity: showImage && !isImageLoading ? 1 : 0,
+                      transform: showImage && !isImageLoading ? 'scale(1)' : 'scale(0.9)',
+                      transition: 'opacity 0.3s ease, transform 0.3s ease',
+                      willChange: 'opacity, transform'
+                    }}
+                    onLoad={() => setIsImageLoading(false)}
+                  />
+                ) : formData?.id && formData.imageStatus?.hasOriginal ? (
+                  <img
+                    src={`${getImagePath(formData.id)}?t=${formData.imageTimestamp}`}
+                    alt="Current miniature"
+                    style={{
+                      width: 'calc(100% - 16px)',
+                      height: 'calc(100% - 16px)',
+                      objectFit: 'contain',
+                      opacity: showImage && !isImageLoading ? 1 : 0,
+                      transform: showImage && !isImageLoading ? 'scale(1)' : 'scale(0.9)',
+                      transition: 'opacity 0.3s ease, transform 0.3s ease',
+                      willChange: 'opacity, transform'
+                    }}
+                    onLoad={() => setIsImageLoading(false)}
+                  />
                 ) : (
-                  <Stack align="center" justify="center" h="100%" gap="md" p="xl">
-                    <Box 
-                      style={{
-                        width: '80px',
-                        height: '80px',
-                        borderRadius: '50%',
-                        backgroundColor: 'var(--mantine-color-dark-4)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                    >
-                      <IconPhoto style={{ width: '40px', height: '40px', opacity: 0.5 }} />
-                    </Box>
-                    <Stack gap={4} align="center">
-                      <Text size="sm" fw={500}>Drop image here or click to upload</Text>
-                      <Text size="xs" c="dimmed">Supports JPG, PNG, WebP</Text>
-                    </Stack>
+                  <Stack gap="xs" align="center">
+                    <IconUpload size={32} style={{ opacity: 0.5 }} />
+                    <Text size="sm">Drag and drop an image here</Text>
+                    <Text size="xs" c="dimmed">The image will be uploaded when you save</Text>
                   </Stack>
                 )}
-
-                {/* Hidden file input */}
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  style={{ display: 'none' }}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setImageFile(file);
-                      setImagePreview(URL.createObjectURL(file));
-                    }
-                  }}
-                  accept="image/*"
-                />
-
-                {/* Loading states */}
-                {(isUploadingImage || isDeletingImage) && (
-                  <Box
+                {isImageLoading && (
+                  <div
                     style={{
                       position: 'absolute',
                       top: 0,
                       left: 0,
                       right: 0,
                       bottom: 0,
-                      backgroundColor: 'rgba(0, 0, 0, 0.5)',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center'
+                      justifyContent: 'center',
+                      backgroundColor: 'var(--mantine-color-dark-6)',
                     }}
                   >
-                    <Loader color="white" size="sm" />
-                  </Box>
+                    <Loader size="md" />
+                  </div>
                 )}
-              </Box>
+              </div>
 
               {/* Base Size and Painted By row */}
               <Group grow>
@@ -2520,20 +2535,11 @@ export default function Miniatures() {
 
       {/* Modals */}
       <MiniatureModal
-        opened={!!editingMini}
-        onClose={handleEditModalClose}
+        opened={!!editingMini || isAddingMini}
+        onClose={isAddingMini ? handleAddModalClose : handleEditModalClose}
         miniature={editingMini}
         onImageUpdate={setImageTimestamp}
       />
-
-      <AdminModal
-        opened={isAddingMini}
-        onClose={handleAddModalClose}
-        title="Add Miniature"
-        size="xl"
-      >
-        {/* Add miniature form content */}
-      </AdminModal>
     </Stack>
   );
 } 

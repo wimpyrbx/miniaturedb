@@ -696,6 +696,8 @@ interface MiniType {
   id: number;
   name: string;
   proxy_type: boolean;
+  categories?: number[];
+  category_names?: string[];
 }
 
 interface Mini {
@@ -704,16 +706,13 @@ interface Mini {
   description: string | null;
   location: string;
   quantity: number;
-  created_at: string;
-  updated_at: string;
   painted_by_id: number;
   base_size_id: number;
   product_set_id: number | null;
-  base_size_name: string | null;
-  painted_by_name: string | null;
-  product_set_name: string | null;
-  product_line_name: string | null;
-  company_name: string | null;
+  created_at: string;
+  updated_at: string;
+  tags?: any[];
+  types?: any[];
 }
 
 // Tag endpoints
@@ -1166,7 +1165,7 @@ app.get('/api/miniatures', requireAuth, (_req, res) => {
       LEFT JOIN product_sets ps ON m.product_set_id = ps.id
       LEFT JOIN product_lines pl ON ps.product_line_id = pl.id
       LEFT JOIN production_companies pc ON pl.company_id = pc.id
-      ORDER BY m.name
+      ORDER BY m.created_at DESC, m.name
     `).all() as Mini[];
 
     // For each mini, get its tags and types
@@ -1252,6 +1251,214 @@ app.delete('/api/minis/:id', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Error deleting miniature:', error);
     res.status(500).json({ error: 'Failed to delete miniature' });
+  }
+});
+
+app.post('/api/miniatures', requireAuth, (req, res) => {
+  try {
+    console.log('Received request to create miniature:', req.body);
+
+    const {
+      name,
+      description,
+      location,
+      quantity,
+      painted_by_id,
+      base_size_id,
+      product_set_id,
+      types,
+      tags
+    } = req.body;
+
+    // Validate required fields
+    if (!name || !location) {
+      console.error('Missing required fields:', { name, location });
+      res.status(400).json({ error: 'Name and location are required' });
+      return;
+    }
+
+    interface MiniatureData {
+      name: string;
+      description: string | null;
+      location: string;
+      quantity: number;
+      painted_by_id: number;
+      base_size_id: number;
+      product_set_id: number | null;
+      types: Array<{ id: number; proxy_type: boolean }>;
+      tags: Array<{ id: number; name: string }>;
+    }
+
+    interface DbMini {
+      id: number;
+      name: string;
+      description: string | null;
+      location: string;
+      quantity: number;
+      painted_by_id: number;
+      base_size_id: number;
+      product_set_id: number | null;
+      created_at: string;
+      updated_at: string;
+    }
+
+    // Use a transaction to insert miniature and its relationships
+    const createMiniature = minisDb.transaction((data: MiniatureData) => {
+      console.log('Starting transaction with data:', data);
+
+      try {
+        // Insert the miniature
+        console.log('Inserting miniature...');
+        const mini = minisDb.prepare(`
+          INSERT INTO minis (
+            name,
+            description,
+            location,
+            quantity,
+            painted_by_id,
+            base_size_id,
+            product_set_id,
+            created_at,
+            updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+          RETURNING *
+        `).get(
+          data.name,
+          data.description,
+          data.location,
+          data.quantity,
+          data.painted_by_id,
+          data.base_size_id,
+          data.product_set_id
+        ) as DbMini;
+
+        console.log('Miniature inserted:', mini);
+
+        // Insert types if any
+        if (data.types && data.types.length > 0) {
+          console.log('Inserting types:', data.types);
+          const insertTypeStmt = minisDb.prepare(
+            'INSERT INTO mini_to_types (mini_id, type_id, proxy_type) VALUES (?, ?, ?)'
+          );
+          for (const type of data.types) {
+            insertTypeStmt.run(mini.id, type.id, type.proxy_type ? 1 : 0);
+          }
+        }
+
+        // Handle tags - create new ones if needed
+        if (data.tags && data.tags.length > 0) {
+          console.log('Processing tags:', data.tags);
+          const findTagStmt = minisDb.prepare(
+            'SELECT id, name FROM tags WHERE name = ? COLLATE NOCASE'
+          );
+          const insertTagStmt = minisDb.prepare(
+            'INSERT INTO tags (name) VALUES (?) RETURNING *'
+          );
+          const linkTagStmt = minisDb.prepare(
+            'INSERT INTO mini_to_tags (mini_id, tag_id) VALUES (?, ?)'
+          );
+
+          for (const tag of data.tags) {
+            let tagId = tag.id;
+            
+            // If tag ID is -1, check if it exists or create it
+            if (tagId === -1) {
+              console.log('Checking if tag exists:', tag.name);
+              const existingTag = findTagStmt.get(tag.name) as { id: number } | undefined;
+              
+              if (existingTag) {
+                console.log('Found existing tag:', existingTag);
+                tagId = existingTag.id;
+              } else {
+                console.log('Creating new tag:', tag.name);
+                const newTag = insertTagStmt.get(tag.name) as { id: number };
+                tagId = newTag.id;
+                console.log('Created new tag with ID:', tagId);
+              }
+            }
+
+            console.log('Linking tag', tagId, 'to miniature', mini.id);
+            linkTagStmt.run(mini.id, tagId);
+          }
+        }
+
+        // Return the complete miniature with all relationships
+        console.log('Fetching complete miniature data...');
+        const result = minisDb.prepare(`
+          SELECT 
+            m.*,
+            bs.base_size_name,
+            pb.painted_by_name,
+            ps.name as product_set_name,
+            pl.name as product_line_name,
+            pc.name as company_name,
+            (
+              SELECT json_group_array(json_object(
+                'id', t.id,
+                'name', t.name,
+                'proxy_type', mtt.proxy_type
+              ))
+              FROM mini_to_types mtt
+              JOIN mini_types t ON mtt.type_id = t.id
+              WHERE mtt.mini_id = m.id
+            ) as types,
+            (
+              SELECT json_group_array(json_object(
+                'id', t.id,
+                'name', t.name
+              ))
+              FROM mini_to_tags mtt
+              JOIN tags t ON mtt.tag_id = t.id
+              WHERE mtt.mini_id = m.id
+            ) as tags
+          FROM minis m
+          LEFT JOIN base_sizes bs ON m.base_size_id = bs.id
+          LEFT JOIN painted_by pb ON m.painted_by_id = pb.id
+          LEFT JOIN product_sets ps ON m.product_set_id = ps.id
+          LEFT JOIN product_lines pl ON ps.product_line_id = pl.id
+          LEFT JOIN production_companies pc ON pl.company_id = pc.id
+          WHERE m.id = ?
+        `).get(mini.id) as {
+          types: string;
+          tags: string;
+          [key: string]: any;
+        };
+
+        console.log('Complete miniature data:', result);
+        return result;
+      } catch (err) {
+        console.error('Error in transaction:', err);
+        throw err;
+      }
+    });
+
+    // Execute the transaction
+    console.log('Executing transaction...');
+    const result = createMiniature({
+      name,
+      description,
+      location,
+      quantity,
+      painted_by_id,
+      base_size_id,
+      product_set_id,
+      types: types || [],
+      tags: tags || []
+    });
+
+    // Parse the JSON arrays in the result
+    result.types = JSON.parse(result.types || '[]');
+    result.tags = JSON.parse(result.tags || '[]');
+
+    console.log('Transaction complete, sending response:', result);
+    res.json(result);
+  } catch (error) {
+    console.error('Error creating miniature:', error);
+    if (error instanceof Error) {
+      res.status(500).json({ error: `Failed to create miniature: ${error.message}` });
+    } else {
+      res.status(500).json({ error: 'Failed to create miniature: Unknown error' });
+    }
   }
 });
 
