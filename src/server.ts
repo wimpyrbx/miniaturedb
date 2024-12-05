@@ -690,7 +690,7 @@ interface Mini {
 }
 
 // Tag endpoints
-app.get('/api/tags', requireAuth, (_req, res) => {
+app.get('/api/tags', (_req, res) => {
   try {
     const tags = minisDb.prepare('SELECT * FROM tags ORDER BY name').all();
     res.json(tags);
@@ -714,7 +714,7 @@ app.post('/api/tags', requireAuth, (req, res) => {
 });
 
 // Minis endpoints
-app.get('/api/minis', requireAuth, (req, res) => {
+app.get('/api/minis', (_req, res) => {
   try {
     // First get all minis with their basic info
     const minis = minisDb.prepare(`
@@ -734,8 +734,8 @@ app.get('/api/minis', requireAuth, (req, res) => {
       ORDER BY m.name
     `).all() as Mini[];
 
-    // For each mini, get its tags
-    const minisWithTags = minis.map(mini => {
+    // For each mini, get its tags and types
+    const minisWithDetails = minis.map(mini => {
       const tags = minisDb.prepare(`
         SELECT t.id, t.name
         FROM tags t
@@ -744,7 +744,6 @@ app.get('/api/minis', requireAuth, (req, res) => {
         ORDER BY t.name
       `).all(mini.id) as Tag[];
 
-      // Get types and categories
       const types = minisDb.prepare(`
         SELECT mt.id, mt.name, mtt.proxy_type
         FROM mini_types mt
@@ -753,25 +752,14 @@ app.get('/api/minis', requireAuth, (req, res) => {
         ORDER BY mtt.proxy_type, mt.name
       `).all(mini.id) as MiniType[];
 
-      const categories = minisDb.prepare(`
-        SELECT DISTINCT mc.id, mc.name
-        FROM mini_categories mc
-        JOIN type_to_categories ttc ON mc.id = ttc.category_id
-        JOIN mini_to_types mtt ON ttc.type_id = mtt.type_id
-        WHERE mtt.mini_id = ?
-        ORDER BY mc.name
-      `).all(mini.id) as Category[];
-
       return {
         ...mini,
         tags,
-        types,
-        categories: categories.map(c => c.id),
-        category_names: categories.map(c => c.name)
+        types
       };
     });
 
-    res.json(minisWithTags);
+    res.json(minisWithDetails);
   } catch (error) {
     console.error('Error fetching minis:', error);
     res.status(500).json({ error: 'Failed to fetch minis' });
@@ -937,7 +925,7 @@ app.put('/api/minis/:id/type', requireAuth, (req, res) => {
 });
 
 // Base sizes endpoints
-app.get('/api/base_sizes', requireAuth, (_req, res) => {
+app.get('/api/base_sizes', (_req, res) => {
   try {
     const baseSizes = minisDb.prepare('SELECT * FROM base_sizes ORDER BY id').all();
     res.json(baseSizes);
@@ -948,7 +936,7 @@ app.get('/api/base_sizes', requireAuth, (_req, res) => {
 });
 
 // Painted by endpoints
-app.get('/api/painted_by', requireAuth, (_req, res) => {
+app.get('/api/painted_by', (_req, res) => {
   try {
     const paintedBy = minisDb.prepare('SELECT * FROM painted_by ORDER BY id').all();
     res.json(paintedBy);
@@ -1072,7 +1060,7 @@ app.delete('/api/minis/:id/image', requireAuth, (req, res) => {
 });
 
 // Types endpoints
-app.get('/api/types', requireAuth, (_req, res) => {
+app.get('/api/types', (_req, res) => {
   try {
     const types = minisDb.prepare(`
       SELECT mt.*, 
@@ -1183,6 +1171,60 @@ app.get('/api/miniatures', requireAuth, (_req, res) => {
   } catch (error) {
     console.error('Error fetching minis:', error);
     res.status(500).json({ error: 'Failed to fetch minis' });
+  }
+});
+
+// Delete miniature and all associated data
+app.delete('/api/minis/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const db = req.app.locals.minisDb;
+
+  try {
+    // Start a transaction
+    db.prepare('BEGIN').run();
+
+    try {
+      // Delete associated records first
+      db.prepare('DELETE FROM mini_to_types WHERE mini_id = ?').run(id);
+      db.prepare('DELETE FROM mini_to_tags WHERE mini_id = ?').run(id);
+      
+      // Delete the miniature record
+      const result = db.prepare('DELETE FROM minis WHERE id = ?').run(id);
+      
+      if (result.changes === 0) {
+        db.prepare('ROLLBACK').run();
+        return res.status(404).json({ error: 'Miniature not found' });
+      }
+
+      // Delete associated images
+      const firstDigit = id[0];
+      const secondDigit = id.length > 1 ? id[1] : '0';
+      const imagePath = path.join('public', 'images', 'miniatures');
+      
+      // Delete original image
+      const originalPath = path.join(imagePath, 'original', firstDigit, secondDigit, `${id}.webp`);
+      if (fs.existsSync(originalPath)) {
+        fs.unlinkSync(originalPath);
+      }
+      
+      // Delete thumbnail
+      const thumbPath = path.join(imagePath, 'thumb', firstDigit, secondDigit, `${id}.webp`);
+      if (fs.existsSync(thumbPath)) {
+        fs.unlinkSync(thumbPath);
+      }
+
+      // Commit the transaction
+      db.prepare('COMMIT').run();
+      
+      res.json({ success: true });
+    } catch (error) {
+      // Rollback on error
+      db.prepare('ROLLBACK').run();
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error deleting miniature:', error);
+    res.status(500).json({ error: 'Failed to delete miniature' });
   }
 });
 

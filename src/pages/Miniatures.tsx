@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { useState } from 'react';
-import { Stack, Title, Text, Group, Card, Button, TextInput, MultiSelect, Select, Textarea, NumberInput, useMantineColorScheme, Radio, TagsInput, Badge, Center, Loader, SegmentedControl, Pagination, Box, Grid, Paper, UnstyledButton, ActionIcon, Table, MantineTheme, Combobox, useCombobox, InputBase, ScrollArea, Notification, SimpleGrid } from '@mantine/core';
+import { Stack, Title, Text, Group, Card, Button, TextInput, MultiSelect, Select, Textarea, NumberInput, useMantineColorScheme, Radio, TagsInput, Badge, Center, Loader, SegmentedControl, Pagination, Box, Grid, Paper, UnstyledButton, ActionIcon, Table, MantineTheme, Combobox, useCombobox, InputBase, ScrollArea, Notification, SimpleGrid, List } from '@mantine/core';
 import { DataTable } from '../components/ui/table/DataTable';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TableActions } from '../components/ui/tableactions/TableActions';
@@ -1259,6 +1259,58 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
     }
   }, [opened, queryClient]);
 
+  // Add delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (miniId: number) => {
+      const response = await fetch(`/api/minis/${miniId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to delete miniature');
+      return response.json();
+    },
+    onSuccess: () => {
+      // Update the cache to remove the deleted miniature
+      queryClient.setQueryData(['minis'], (oldData: Mini[] | undefined) => {
+        if (!oldData) return oldData;
+        return oldData.filter(mini => mini.id !== miniature?.id);
+      });
+      onClose();
+    },
+    onError: (error) => {
+      console.error('Error deleting miniature:', error);
+    }
+  });
+
+  const handleDelete = () => {
+    modals.openConfirmModal({
+      title: 'Delete Miniature',
+      centered: true,
+      children: (
+        <Stack gap="xs">
+          <Text size="sm">
+            Are you sure you want to delete <strong>{miniature?.name}</strong>? This will also delete:
+          </Text>
+          <List size="sm">
+            <List.Item>All linked type and category associations</List.Item>
+            <List.Item>All linked tag associations</List.Item>
+            <List.Item>Original and thumbnail images</List.Item>
+          </List>
+          <Text size="sm" mt={4}>
+            This action cannot be undone.
+          </Text>
+        </Stack>
+      ),
+      labels: { confirm: 'Delete', cancel: 'Cancel' },
+      confirmProps: { color: 'red' },
+      onConfirm: () => {
+        if (miniature?.id) {
+          deleteMutation.mutate(miniature.id);
+        }
+      }
+    });
+  };
+
   return (
     <AdminModal
       opened={opened}
@@ -1445,7 +1497,7 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
           <Grid.Col span={8}>
             <Stack>
               {/* Name and Product Set row */}
-              <Group grow>
+              <Group grow={false} gap="md">
                 <TextInput
                   size="sm"
                   label="Name"
@@ -1455,6 +1507,7 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
                   required
                   placeholder="Enter miniature name"
                   data-autofocus
+                  style={{ width: '180px' }}
                 />
                 <Select
                   size="sm"
@@ -1472,46 +1525,28 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
                   disabled={isLoadingProductSets}
                   searchable
                   clearable
+                  style={{ flex: 1 }}
                 />
               </Group>
 
-              {/* Tags */}
-              <TagsInput
-                label="Tags"
-                description="Enter existing tags or create new ones"
-                value={formData?.tags?.map(t => t.name) || []}
-                onChange={(values) => {
-                  setFormData(prev => {
-                    if (!prev) return null;
-                    return {
-                      ...prev,
-                      tags: values.map(name => {
-                        const existingTag = existingTags?.find((t: Tag) => t.name === name);
-                        return existingTag || { id: -1, name };
-                      })
-                    };
-                  });
-                }}
-                data={existingTags?.map((t: Tag) => t.name) || []}
-                splitChars={[',', ' ', 'Enter']}
-                maxTags={50}
-                clearable
-              />
-
               {/* Description */}
-              <Textarea
-                label="Description"
-                value={formData?.description || ''}
-                onChange={(e) => setFormData(prev => prev ? { ...prev, description: e.target.value } : null)}
-                minRows={6}
-                maxRows={6}
-                autosize={false}
-                placeholder="Enter miniature description..."
-              />
+              <Box h={100} mb="md">
+                <Textarea
+                  label="Description"
+                  value={formData?.description || ''}
+                  onChange={(e) => setFormData(prev => prev ? { ...prev, description: e.target.value } : null)}
+                  minRows={6}
+                  maxRows={6}
+                  autosize={false}
+                  placeholder="Enter miniature description..."
+                  style={{ height: '100%' }}
+                />
+              </Box>
 
               {/* Types Section */}
               <Box 
                 p="sm"
+                mt="md"
                 style={{ 
                   border: '1px solid var(--mantine-color-default-border)',
                   borderRadius: 'var(--mantine-radius-sm)',
@@ -1711,16 +1746,28 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
           </Grid.Col>
         </Grid>
 
-        <Group justify="flex-end" mt="xl">
-          <Button variant="light" onClick={onClose}>Cancel</Button>
-          <Button 
-            type="submit" 
-            color="green" 
-            loading={isSubmitting}
-            disabled={isSubmitting}
-          >
-            Save Changes
-          </Button>
+        <Group justify="space-between" mt="xl">
+          {miniature && (
+            <Button 
+              color="red" 
+              variant="filled"
+              leftSection={<IconTrash size={16} />}
+              onClick={handleDelete}
+            >
+              Delete Miniature
+            </Button>
+          )}
+          <Group ml="auto">
+            <Button variant="light" onClick={onClose}>Cancel</Button>
+            <Button 
+              type="submit" 
+              color="green" 
+              loading={isSubmitting}
+              disabled={isSubmitting}
+            >
+              Save Changes
+            </Button>
+          </Group>
         </Group>
       </form>
 
