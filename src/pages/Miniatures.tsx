@@ -10,6 +10,9 @@ import { getMiniatureImagePath, checkMiniatureImageStatus, uploadMiniatureImage,
 import { modals } from '@mantine/modals';
 import { getProductSets } from '../api/productinfo/sets/get';
 import { badgeStyles, typeStyles } from '../utils/theme';
+import { updateSettings } from '../api/settings/update';
+import { getSettings } from '../api/settings/get';
+import debounce from 'lodash/debounce';
 
 interface Category {
   id: number;
@@ -702,6 +705,8 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
     message: string;
     color: string;
   }>({ show: false, title: '', message: '', color: 'blue' });
+  const [isImageLoading, setIsImageLoading] = useState(false);
+  const [imageTimestamp, setImageTimestamp] = useState(Date.now());
 
   // Validate name field
   const validateName = (name: string): string | null => {
@@ -1413,69 +1418,69 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
           <Grid.Col span={4}>
             <Stack>
               {/* Image upload section */}
-              <Box 
-                style={{ 
-                  aspectRatio: '1',
-                  backgroundColor: 'var(--mantine-color-dark-4)',
-                  borderRadius: 'var(--mantine-radius-md)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: '2px solid var(--mantine-color-dark-3)',
+              <Box
+                style={{
                   position: 'relative',
                   width: '100%',
+                  aspectRatio: '1',
+                  border: '1px solid var(--mantine-color-dark-3)',
+                  borderRadius: 'var(--mantine-radius-sm)',
                   overflow: 'hidden',
                   cursor: 'pointer',
-                  transition: 'all 200ms ease'
+                  backgroundColor: 'var(--mantine-color-dark-4)'
                 }}
+                onClick={() => fileInputRef.current?.click()}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
               >
-                {(imageStatus.hasOriginal || imagePreview) ? (
+                {(imagePreview || (imageStatus.hasOriginal && formData?.id)) ? (
                   <>
-                    <Box
+                    <img
+                      src={imagePreview || getMiniatureImagePath(formData!.id, 'original', imageTimestamp)}
+                      alt="Miniature"
                       style={{
                         width: '100%',
                         height: '100%',
-                        position: 'relative'
+                        objectFit: 'contain',
+                        opacity: isImageLoading ? 0 : 1,
+                        transition: 'opacity 0.3s ease'
+                      }}
+                      onLoad={() => setIsImageLoading(false)}
+                      onLoadStart={() => setIsImageLoading(true)}
+                    />
+                    {isImageLoading && (
+                      <Center style={{ 
+                        position: 'absolute', 
+                        top: 0, 
+                        left: 0, 
+                        right: 0, 
+                        bottom: 0,
+                        backgroundColor: 'var(--mantine-color-dark-4)'
+                      }}>
+                        <Stack align="center" gap="xs">
+                          <Loader size="sm" />
+                          <Text size="sm" c="dimmed">Loading image...</Text>
+                        </Stack>
+                      </Center>
+                    )}
+                    <Box
+                      style={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        zIndex: 2
                       }}
                     >
-                      <img 
-                        src={imagePreview || (formData?.id ? getMiniatureImagePath(
-                          formData.id, 
-                          'original',
-                          Date.now()
-                        ) : '')}
-                        alt={formData?.name}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'contain',
-                          opacity: 0,
-                          transition: 'opacity 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                          transform: 'scale(0.8)'
-                        }}
-                        onLoad={(e) => {
-                          const img = e.currentTarget;
-                          img.style.opacity = '1';
-                          img.style.transform = 'scale(1)';
-                        }}
-                      />
                       <ActionIcon
-                        variant="filled"
                         color="red"
-                        size="sm"
-                        style={{
-                          position: 'absolute',
-                          bottom: 8,
-                          left: 8,
-                          zIndex: 2
-                        }}
+                        variant="filled"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleImageDelete();
+                        }}
+                        style={{
+                          backgroundColor: 'rgba(0, 0, 0, 0.6)'
                         }}
                       >
                         <IconTrash size={16} />
@@ -1932,16 +1937,88 @@ export default function Miniatures() {
     }, 100);
   };
 
-  // Handle page change
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+  // Handle modal closes
+  const handleEditModalClose = () => {
+    setEditingMini(null);
     focusFilterInput();
   };
 
-  // Handle view type change
-  const handleViewChange = (value: string) => {
-    setViewType(value as ViewType);
+  const handleAddModalClose = () => {
+    setIsAddingMini(false);
     focusFilterInput();
+  };
+
+  // Load saved view type preference
+  useEffect(() => {
+    const loadPreferences = async () => {
+      try {
+        const settings = await getSettings();
+        if (settings.miniatures_view_type) {
+          setViewType(settings.miniatures_view_type as ViewType);
+        }
+        if (settings.miniatures_view_last_page_visited) {
+          setCurrentPage(parseInt(settings.miniatures_view_last_page_visited));
+        }
+        if (settings.miniatures_view_last_filter_text) {
+          setFilterText(settings.miniatures_view_last_filter_text);
+        }
+      } catch (error) {
+        console.error('Failed to load preferences:', error);
+      }
+    };
+    loadPreferences();
+  }, []);
+
+  // Save view type preference when changed
+  const handleViewChange = async (value: string) => {
+    const newViewType = value as ViewType;
+    setViewType(newViewType);
+    focusFilterInput();
+    try {
+      await updateSettings({
+        setting_key: 'miniatures_view_type',
+        setting_value: newViewType
+      });
+    } catch (error) {
+      console.error('Failed to save view preference:', error);
+    }
+  };
+
+  // Handle page change
+  const handlePageChange = async (page: number) => {
+    setCurrentPage(page);
+    focusFilterInput();
+    try {
+      await updateSettings({
+        setting_key: 'miniatures_view_last_page_visited',
+        setting_value: page.toString()
+      });
+    } catch (error) {
+      console.error('Failed to save page preference:', error);
+    }
+  };
+
+  // Handle filter text changes with debounce
+  const debouncedSaveFilter = useMemo(
+    () =>
+      debounce(async (text: string) => {
+        try {
+          await updateSettings({
+            setting_key: 'miniatures_view_last_filter_text',
+            setting_value: text
+          });
+        } catch (error) {
+          console.error('Failed to save filter preference:', error);
+        }
+      }, 500),
+    []
+  );
+
+  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newText = e.target.value;
+    setFilterText(newText);
+    setCurrentPage(1);
+    debouncedSaveFilter(newText);
   };
 
   // Focus on initial load
@@ -1976,16 +2053,36 @@ export default function Miniatures() {
 
     const searchText = filterText.toLowerCase();
     return minis.filter(mini => {
+      // Handle potentially undefined mini object
+      if (!mini) return false;
+
+      // Handle arrays that might be undefined
+      const types = mini.types || [];
+      const categoryNames = mini.category_names || [];
+      const tags = mini.tags || [];
+
+      const typeMatch = types.some(type => 
+        type?.name?.toLowerCase().includes(searchText)
+      );
+      
+      const categoryMatch = categoryNames.some(cat => 
+        cat?.toLowerCase().includes(searchText)
+      );
+      
+      const tagMatch = tags.some(tag => 
+        tag?.name?.toLowerCase().includes(searchText)
+      );
+
       return (
-        mini.name.toLowerCase().includes(searchText) ||
-        mini.company_name?.toLowerCase().includes(searchText) ||
-        mini.product_line_name?.toLowerCase().includes(searchText) ||
-        mini.product_set_name?.toLowerCase().includes(searchText) ||
-        mini.description?.toLowerCase().includes(searchText) ||
-        mini.location?.toLowerCase().includes(searchText) ||
-        mini.types.some(type => type.name.toLowerCase().includes(searchText)) ||
-        mini.category_names.some(cat => cat.toLowerCase().includes(searchText)) ||
-        mini.tags?.some(tag => tag.name.toLowerCase().includes(searchText))
+        (mini.name || '').toLowerCase().includes(searchText) ||
+        (mini.company_name || '').toLowerCase().includes(searchText) ||
+        (mini.product_line_name || '').toLowerCase().includes(searchText) ||
+        (mini.product_set_name || '').toLowerCase().includes(searchText) ||
+        (mini.description || '').toLowerCase().includes(searchText) ||
+        (mini.location || '').toLowerCase().includes(searchText) ||
+        typeMatch ||
+        categoryMatch ||
+        tagMatch
       );
     });
   }, [minis, filterText]);
@@ -2073,10 +2170,7 @@ export default function Miniatures() {
             ref={filterInputRef}
             placeholder="Search..."
             value={filterText}
-            onChange={(e) => {
-              setFilterText(e.target.value);
-              setCurrentPage(1);
-            }}
+            onChange={handleFilterChange}
             leftSection={<IconSearch size={16} style={{ opacity: 0.5 }} />}
             styles={{
               input: {
@@ -2101,24 +2195,21 @@ export default function Miniatures() {
         </Group>
       )}
 
-      {/* Edit Modal */}
+      {/* Modals */}
       <MiniatureModal
         opened={!!editingMini}
-        onClose={() => setEditingMini(null)}
+        onClose={handleEditModalClose}
         miniature={editingMini}
         onImageUpdate={setImageTimestamp}
       />
 
-      {/* Add Modal */}
       <AdminModal
         opened={isAddingMini}
-        onClose={() => setIsAddingMini(false)}
+        onClose={handleAddModalClose}
         title="Add Miniature"
         size="xl"
       >
-        <Stack>
-          {/* Add form content here */}
-        </Stack>
+        {/* Add miniature form content */}
       </AdminModal>
     </Stack>
   );

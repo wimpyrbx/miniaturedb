@@ -354,15 +354,42 @@ app.put('/api/settings', requireAuth, async (
     }
 
     const { setting_key, setting_value } = req.body;
-    if (!setting_key || !setting_value) {
-      res.status(400).json({ message: 'Missing setting_key or setting_value' });
+    if (typeof setting_key !== 'string') {
+      res.status(400).json({ message: 'Missing or invalid setting_key' });
       return;
     }
 
-    // Validate setting_key
-    if (!['colormode', 'colortheme', 'styletheme'].includes(setting_key)) {
+    // Allow empty string for filter text, but require values for other settings
+    if (setting_key !== 'miniatures_view_last_filter_text' && !setting_value) {
+      res.status(400).json({ message: 'Missing setting_value' });
+      return;
+    }
+
+    // Validate setting_key and value
+    if (!['colormode', 'colortheme', 'styletheme', 'miniatures_view_type', 
+          'miniatures_view_last_page_visited', 'miniatures_view_last_filter_text'].includes(setting_key)) {
       res.status(400).json({ message: 'Invalid setting_key' });
       return;
+    }
+
+    // Validate specific setting values
+    if (setting_key === 'colormode' && !['light', 'dark'].includes(setting_value)) {
+      res.status(400).json({ message: 'Invalid color mode value' });
+      return;
+    }
+
+    if (setting_key === 'miniatures_view_type' && !['table', 'cards', 'banner'].includes(setting_value)) {
+      res.status(400).json({ message: 'Invalid view type value' });
+      return;
+    }
+
+    // Validate page number is a positive integer
+    if (setting_key === 'miniatures_view_last_page_visited') {
+      const pageNum = parseInt(setting_value);
+      if (isNaN(pageNum) || pageNum < 1) {
+        res.status(400).json({ message: 'Invalid page number' });
+        return;
+      }
     }
 
     // Create user_preferences table if it doesn't exist

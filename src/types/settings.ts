@@ -1,6 +1,9 @@
 export interface UserSettings {
-  theme?: string;
-  language?: string;
-  notifications?: boolean;
+  colormode?: 'light' | 'dark';
+  colortheme?: string;
+  styletheme?: string;
+  miniatures_view_type?: 'table' | 'cards' | 'banner';
+  miniatures_view_last_page_visited?: string;
+  miniatures_view_last_filter_text?: string;
   [key: string]: any;
 } 
