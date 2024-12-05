@@ -9,6 +9,7 @@ import { IconEdit, IconPlus, IconPhoto, IconTable, IconLayoutGrid, IconLayoutLis
 import { AdminModal } from '../components/AdminModal';
 import { getMiniatureImagePath, checkMiniatureImageStatus, uploadMiniatureImage, deleteMiniatureImage, ImageStatus } from '../utils/imageUtils';
 import { modals } from '@mantine/modals';
+import { getProductSets } from '../api/productinfo/sets/get';
 
 interface Category {
   id: number;
@@ -637,7 +638,7 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
   const [isDeletingImage, setIsDeletingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Add queries for base sizes and painted by options
+  // Add queries for base sizes, painted by, and product sets
   const { data: baseSizes } = useQuery<BaseSize[]>({
     queryKey: ['base_sizes'],
     queryFn: async () => {
@@ -653,6 +654,21 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
       const response = await fetch('/api/painted_by', { credentials: 'include' });
       if (!response.ok) throw new Error('Failed to fetch painted by options');
       return response.json();
+    }
+  });
+
+  const { data: productSetOptions, isLoading: isLoadingProductSets } = useQuery({
+    queryKey: ['product_sets'],
+    queryFn: async () => {
+      const response = await fetch('/api/productinfo/sets', { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch product sets');
+      const sets = await response.json();
+      
+      // Convert to simple value/label pairs
+      return sets.map((set: any) => ({
+        value: set.id.toString(),
+        label: `${set.company_name} » ${set.product_line_name} » ${set.name}`
+      })).sort((a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label));
     }
   });
 
@@ -753,7 +769,6 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
     >
       <form onSubmit={handleSubmit}>
         <Stack>
-          {/* Main content area */}
           <Group wrap="nowrap" align="flex-start">
             {/* Left Column - 25% width */}
             <Stack w="25%">
@@ -917,6 +932,23 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
                 value={formData.name || ''}
                 onChange={(e) => setFormData(prev => prev ? { ...prev, name: e.target.value } : null)}
                 required
+              />
+              <Select
+                label="Product Set"
+                placeholder="Select a product set"
+                value={formData?.product_set_id?.toString()}
+                onChange={(value) => setFormData(prev => prev ? { 
+                  ...prev, 
+                  product_set_id: value ? parseInt(value) : null,
+                  // Clear these as they'll be updated on refresh
+                  product_set_name: null,
+                  product_line_name: null,
+                  company_name: null
+                } : null)}
+                data={productSetOptions ?? []}
+                disabled={isLoadingProductSets}
+                searchable
+                clearable
               />
               <NumberInput
                 label="Quantity"

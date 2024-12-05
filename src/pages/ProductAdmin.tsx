@@ -8,7 +8,7 @@ import { Grid, Title, Card, Button, Group, Text, Stack, Table, Modal, TextInput,
 import { IconPlus, IconEdit, IconCheck, IconX, IconBuilding } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
-  getCompanies, getProductLines, getProductSets,
+  getCompanies, getProductLines, getProductSetsByLine,
   createCompany, updateCompany,
   createProductLine, updateProductLine,
   createProductSet, updateProductSet
@@ -101,7 +101,7 @@ export function ProductAdmin() {
           // Fetch and cache sets for each line
           await Promise.all(
             lines.map(async (line) => {
-              const sets = await getProductSets(line.id);
+              const sets = await getProductSetsByLine(line.id);
               // Store the sets data in the query cache
               queryClient.setQueryData(
                 ['productSets', line.id],
@@ -124,7 +124,7 @@ export function ProductAdmin() {
 
   const { data: productSets, isLoading: isLoadingSets } = useQuery({
     queryKey: ['productSets', selectedLine?.id],
-    queryFn: () => selectedLine ? getProductSets(selectedLine.id) : Promise.resolve([]),
+    queryFn: () => selectedLine ? getProductSetsByLine(selectedLine.id) : Promise.resolve([]),
     enabled: !!selectedLine
   });
 

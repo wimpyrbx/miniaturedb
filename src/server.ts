@@ -215,6 +215,26 @@ app.delete('/api/productinfo/lines/:id', requireAuth, (req, res) => {
 });
 
 // Product Sets
+app.get('/api/productinfo/sets', requireAuth, (req, res) => {
+  try {
+    const sets = minisDb.prepare(`
+      SELECT 
+        ps.*,
+        pl.name as product_line_name,
+        pc.name as company_name,
+        (SELECT COUNT(*) FROM minis WHERE product_set_id = ps.id) as mini_count
+      FROM product_sets ps
+      JOIN product_lines pl ON ps.product_line_id = pl.id
+      JOIN production_companies pc ON pl.company_id = pc.id
+      ORDER BY pc.name, pl.name, ps.name
+    `).all();
+    res.json(sets);
+  } catch (error) {
+    console.error('Error fetching all product sets:', error);
+    res.status(500).json({ error: 'Failed to fetch product sets' });
+  }
+});
+
 app.get('/api/productinfo/lines/:id/sets', requireAuth, (req, res) => {
   try {
     const sets = minisDb.prepare(`
@@ -227,7 +247,7 @@ app.get('/api/productinfo/lines/:id/sets', requireAuth, (req, res) => {
     `).all(req.params.id);
     res.json(sets);
   } catch (error) {
-    console.error('Error fetching product sets:', error);
+    console.error('Error fetching product sets for line:', error);
     res.status(500).json({ error: 'Failed to fetch product sets' });
   }
 });
