@@ -1,10 +1,10 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { useState } from 'react';
-import { Stack, Title, Text, Group, Card, Button, TextInput, MultiSelect, Select, Textarea, NumberInput, useMantineColorScheme, Radio, TagsInput, Badge, Center, Loader, SegmentedControl, Pagination, Box, Grid, Paper, UnstyledButton, ActionIcon, Table, MantineTheme, Combobox, useCombobox, InputBase, ScrollArea, Notification, SimpleGrid, List } from '@mantine/core';
+import { Stack, Title, Text, Group, Card, Button, TextInput, MultiSelect, Select, Textarea, NumberInput, useMantineColorScheme, useMantineTheme, Radio, TagsInput, Badge, Center, Loader, SegmentedControl, Pagination, Box, Grid, Paper, UnstyledButton, ActionIcon, Table, MantineTheme, Combobox, useCombobox, InputBase, ScrollArea, Notification, SimpleGrid, List, AspectRatio } from '@mantine/core';
 import { DataTable } from '../components/ui/table/DataTable';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TableActions } from '../components/ui/tableactions/TableActions';
-import { IconEdit, IconPlus, IconPhoto, IconTable, IconLayoutGrid, IconLayoutList, IconSearch, IconPackage, IconTrash, IconX, IconCheck } from '@tabler/icons-react';
+import { IconEdit, IconPlus, IconPhoto, IconTable, IconLayoutGrid, IconLayoutList, IconSearch, IconPackage, IconTrash, IconX, IconCheck, IconPhotoUp, IconClock } from '@tabler/icons-react';
 import { AdminModal } from '../components/AdminModal';
 import { getMiniatureImagePath, checkMiniatureImageStatus, uploadMiniatureImage, deleteMiniatureImage, ImageStatus } from '../utils/imageUtils';
 import { modals } from '@mantine/modals';
@@ -161,7 +161,7 @@ const ClassificationSection = ({ label, items, color, getItemColor }: {
   );
 };
 
-type ViewType = 'table' | 'cards' | 'banner';
+type ViewType = 'table' | 'cards' | 'banner' | 'timeline';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -675,6 +675,301 @@ const BannerView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp }
           </Card>
         ))}
       </div>
+    </Stack>
+  );
+};
+
+const GalleryView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp }: { 
+  minis: Mini[], 
+  onEdit: (mini: Mini) => void,
+  currentPage: number,
+  onPageChange: (page: number) => void,
+  imageTimestamp: number
+}) => {
+  const paginatedMinis = minis.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  return (
+    <SimpleGrid
+      cols={{ base: 2, sm: 3, md: 4, lg: 5 }}
+      spacing="md"
+    >
+      {paginatedMinis.map((mini) => (
+        <Paper
+          key={mini.id}
+          p="xs"
+          shadow="md"
+          radius="md"
+          onClick={() => onEdit(mini)}
+          style={{ 
+            cursor: 'pointer',
+            backgroundColor: 'var(--mantine-color-dark-6)',
+            transition: 'all 0.2s ease',
+            '&:hover': {
+              transform: 'translateY(-5px)',
+              boxShadow: 'var(--mantine-shadow-lg)'
+            }
+          }}
+        >
+          <AspectRatio ratio={1}>
+            {mini.imageStatus?.hasOriginal ? (
+              <img
+                src={getMiniatureImagePath(mini.id, 'original', mini.imageTimestamp || imageTimestamp)}
+                alt={mini.name}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                  borderRadius: 'var(--mantine-radius-sm)'
+                }}
+              />
+            ) : (
+              <Center style={{ backgroundColor: 'var(--mantine-color-dark-4)', borderRadius: 'var(--mantine-radius-sm)' }}>
+                <IconPhoto size={32} style={{ opacity: 0.5 }} />
+              </Center>
+            )}
+          </AspectRatio>
+          <Stack gap={4} mt="xs">
+            <Text size="sm" fw={500} lineClamp={1}>{mini.name}</Text>
+            {mini.types && mini.types.length > 0 && (
+              <Group gap={4} wrap="nowrap">
+                {mini.types.map((type, index) => (
+                  <Badge
+                    key={type.id}
+                    size="xs"
+                    variant={!type.proxy_type ? typeStyles.main.variant : typeStyles.proxy.variant}
+                    color={!type.proxy_type ? typeStyles.main.color : typeStyles.proxy.color}
+                    style={{
+                      opacity: !type.proxy_type ? typeStyles.main.opacity : typeStyles.proxy.opacity,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}
+                  >
+                    {type.name}
+                  </Badge>
+                ))}
+              </Group>
+            )}
+          </Stack>
+        </Paper>
+      ))}
+    </SimpleGrid>
+  );
+};
+
+const TimelineView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp }: { 
+  minis: Mini[], 
+  onEdit: (mini: Mini) => void,
+  currentPage: number,
+  onPageChange: (page: number) => void,
+  imageTimestamp: number
+}) => {
+  const theme = useMantineTheme();
+  const paginatedMinis = minis.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // Group minis by month/year
+  const groupedMinis = useMemo(() => {
+    const groups: { [key: string]: Mini[] } = {};
+    paginatedMinis.forEach(mini => {
+      const date = new Date(mini.created_at);
+      const key = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(mini);
+    });
+    return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [paginatedMinis]);
+
+  const formatDate = (dateStr: string) => {
+    const [year, month] = dateStr.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  };
+
+  return (
+    <Stack gap="xl">
+      {groupedMinis.map(([dateKey, monthMinis]) => (
+        <Box key={dateKey}>
+          <Title order={3} size="h4" mb="md">{formatDate(dateKey)}</Title>
+          <Stack gap="md">
+            {monthMinis.map((mini) => (
+              <Paper
+                key={mini.id}
+                onClick={() => onEdit(mini)}
+                className="timeline-item"
+                styles={(theme) => ({
+                  root: {
+                    cursor: 'pointer',
+                    backgroundColor: theme.colors.dark[6],
+                    transition: 'all 400ms cubic-bezier(0.4, 0, 0.2, 1)',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    padding: theme.spacing.md,
+                    borderRadius: theme.radius.md,
+                    '&:hover': {
+                      backgroundColor: theme.colors.dark[5],
+                      transform: 'scale(1.01)',
+                      '& .background-image': {
+                        opacity: 0.15,
+                        transform: 'scale(1.05)'
+                      }
+                    }
+                  }
+                })}
+              >
+                {/* Background Image */}
+                {mini.imageStatus?.hasOriginal && (
+                  <div 
+                    className="background-image"
+                    style={{
+                      position: 'absolute',
+                      top: '-10%',
+                      left: '-10%',
+                      right: '-10%',
+                      bottom: '-10%',
+                      backgroundImage: `url(${getMiniatureImagePath(mini.id, 'original', mini.imageTimestamp || imageTimestamp)})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      filter: 'blur(10px)',
+                      opacity: 0,
+                      transition: 'all 400ms cubic-bezier(0.4, 0, 0.2, 1)',
+                      transform: 'scale(0.95)',
+                      zIndex: 0
+                    }}
+                  />
+                )}
+
+                <Grid align="center" style={{ position: 'relative', zIndex: 1 }}>
+                  {/* Left side - Image */}
+                  <Grid.Col span={2}>
+                    <AspectRatio ratio={1}>
+                      {mini.imageStatus?.hasOriginal ? (
+                        <img
+                          src={getMiniatureImagePath(mini.id, 'original', mini.imageTimestamp || imageTimestamp)}
+                          alt={mini.name}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'contain',
+                            borderRadius: theme.radius.sm,
+                            transition: 'transform 400ms cubic-bezier(0.4, 0, 0.2, 1)'
+                          }}
+                        />
+                      ) : (
+                        <Center style={{ 
+                          backgroundColor: theme.colors.dark[4], 
+                          borderRadius: theme.radius.sm,
+                          height: '100%'
+                        }}>
+                          <IconPhoto size={32} style={{ opacity: 0.5 }} />
+                        </Center>
+                      )}
+                    </AspectRatio>
+                  </Grid.Col>
+
+                  {/* Middle - Main Info */}
+                  <Grid.Col span={7}>
+                    <Stack gap="xs">
+                      <Group justify="space-between" wrap="nowrap">
+                        <Text fw={500} size="lg" lineClamp={1}>{mini.name}</Text>
+                        <Text size="xs" c="dimmed">
+                          {new Date(mini.created_at).toLocaleDateString('en-US', { 
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </Text>
+                      </Group>
+                      
+                      {/* Product Info */}
+                      {(mini.company_name || mini.product_line_name || mini.product_set_name) && (
+                        <Group gap="xs">
+                          <Text size="sm" c="dimmed" span>From:</Text>
+                          <Group gap={4}>
+                            {mini.company_name && (
+                              <Badge size="sm" variant="light" color="blue">{mini.company_name}</Badge>
+                            )}
+                            {mini.product_line_name && (
+                              <Badge size="sm" variant="light" color="cyan">{mini.product_line_name}</Badge>
+                            )}
+                            {mini.product_set_name && (
+                              <Badge size="sm" variant="light" color="teal">{mini.product_set_name}</Badge>
+                            )}
+                          </Group>
+                        </Group>
+                      )}
+
+                      {/* Types */}
+                      {mini.types && mini.types.length > 0 && (
+                        <Group gap="xs">
+                          <Text size="sm" c="dimmed" span>Types:</Text>
+                          <Group gap={4}>
+                            {mini.types.map(type => (
+                              <Badge
+                                key={type.id}
+                                size="sm"
+                                variant={!type.proxy_type ? typeStyles.main.variant : typeStyles.proxy.variant}
+                                color={!type.proxy_type ? typeStyles.main.color : typeStyles.proxy.color}
+                                style={{
+                                  opacity: !type.proxy_type ? typeStyles.main.opacity : typeStyles.proxy.opacity
+                                }}
+                              >
+                                {type.name}
+                              </Badge>
+                            ))}
+                          </Group>
+                        </Group>
+                      )}
+
+                      {/* Description preview */}
+                      {mini.description && (
+                        <Text size="sm" c="dimmed" lineClamp={2}>
+                          {mini.description}
+                        </Text>
+                      )}
+                    </Stack>
+                  </Grid.Col>
+
+                  {/* Right side - Additional Info */}
+                  <Grid.Col span={3}>
+                    <Stack gap="xs" align="flex-end">
+                      <Group gap={4}>
+                        <Text size="sm" c="dimmed">Location:</Text>
+                        <Badge size="sm" variant="light">{mini.location}</Badge>
+                      </Group>
+                      {mini.quantity > 1 && (
+                        <Group gap={4}>
+                          <Text size="sm" c="dimmed">Quantity:</Text>
+                          <Badge size="sm" variant="filled" color="blue">{mini.quantity}</Badge>
+                        </Group>
+                      )}
+                      {mini.base_size_name && (
+                        <Group gap={4}>
+                          <Text size="sm" c="dimmed">Base:</Text>
+                          <Badge size="sm" variant="dot">{mini.base_size_name}</Badge>
+                        </Group>
+                      )}
+                      {mini.painted_by_name && (
+                        <Group gap={4}>
+                          <Text size="sm" c="dimmed">Painted by:</Text>
+                          <Badge size="sm" variant="light" color="grape">{mini.painted_by_name}</Badge>
+                        </Group>
+                      )}
+                    </Stack>
+                  </Grid.Col>
+                </Grid>
+              </Paper>
+            ))}
+          </Stack>
+        </Box>
+      ))}
     </Stack>
   );
 };
@@ -1423,11 +1718,16 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
                   position: 'relative',
                   width: '100%',
                   aspectRatio: '1',
-                  border: '1px solid var(--mantine-color-dark-3)',
-                  borderRadius: 'var(--mantine-radius-sm)',
+                  border: '2px dashed var(--mantine-color-dark-3)',
+                  borderRadius: 'var(--mantine-radius-md)',
                   overflow: 'hidden',
                   cursor: 'pointer',
-                  backgroundColor: 'var(--mantine-color-dark-4)'
+                  backgroundColor: 'var(--mantine-color-dark-6)',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    borderColor: 'var(--mantine-color-blue-5)',
+                    backgroundColor: 'var(--mantine-color-dark-5)',
+                  }
                 }}
                 onClick={() => fileInputRef.current?.click()}
                 onDragOver={handleDragOver}
@@ -1456,7 +1756,8 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
                         left: 0, 
                         right: 0, 
                         bottom: 0,
-                        backgroundColor: 'var(--mantine-color-dark-4)'
+                        backgroundColor: 'var(--mantine-color-dark-6)',
+                        backdropFilter: 'blur(4px)'
                       }}>
                         <Stack align="center" gap="xs">
                           <Loader size="sm" />
@@ -1469,7 +1770,9 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
                         position: 'absolute',
                         top: 8,
                         right: 8,
-                        zIndex: 2
+                        zIndex: 2,
+                        display: 'flex',
+                        gap: '8px'
                       }}
                     >
                       <ActionIcon
@@ -1480,7 +1783,11 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
                           handleImageDelete();
                         }}
                         style={{
-                          backgroundColor: 'rgba(0, 0, 0, 0.6)'
+                          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                          backdropFilter: 'blur(4px)',
+                          '&:hover': {
+                            backgroundColor: 'rgba(225, 45, 45, 0.8)'
+                          }
                         }}
                       >
                         <IconTrash size={16} />
@@ -1488,17 +1795,24 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
                     </Box>
                   </>
                 ) : (
-                  <Stack align="center" gap="xs">
-                    <IconPhoto style={{ width: '40%', height: '40%', opacity: 0.5 }} />
+                  <Stack align="center" justify="center" h="100%" gap="md" p="xl">
                     <Box 
-                      style={{ 
-                        border: '2px dashed var(--mantine-color-dark-2)',
-                        borderRadius: 'var(--mantine-radius-sm)',
-                        padding: '8px 16px'
+                      style={{
+                        width: '80px',
+                        height: '80px',
+                        borderRadius: '50%',
+                        backgroundColor: 'var(--mantine-color-dark-4)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
                       }}
                     >
-                      <Text size="sm" c="dimmed">Drop image here or click to upload</Text>
+                      <IconPhoto style={{ width: '40px', height: '40px', opacity: 0.5 }} />
                     </Box>
+                    <Stack gap={4} align="center">
+                      <Text size="sm" fw={500}>Drop image here or click to upload</Text>
+                      <Text size="xs" c="dimmed">Supports JPG, PNG, WebP</Text>
+                    </Stack>
                   </Stack>
                 )}
 
@@ -1953,7 +2267,8 @@ export default function Miniatures() {
     const loadPreferences = async () => {
       try {
         const settings = await getSettings();
-        if (settings.miniatures_view_type) {
+        if (settings.miniatures_view_type && 
+            ['table', 'cards', 'banner', 'timeline'].includes(settings.miniatures_view_type)) {
           setViewType(settings.miniatures_view_type as ViewType);
         }
         if (settings.miniatures_view_last_page_visited) {
@@ -2114,6 +2429,8 @@ export default function Miniatures() {
           return <CardsView {...viewProps} />;
         case 'banner':
           return <BannerView {...viewProps} />;
+        case 'timeline':
+          return <TimelineView {...viewProps} />;
         default:
           return <TableView {...viewProps} />;
       }
@@ -2148,7 +2465,8 @@ export default function Miniatures() {
               data={[
                 { value: 'table', label: <Center><IconTable size={16} /><Box ml={8}>Table</Box></Center> },
                 { value: 'cards', label: <Center><IconLayoutGrid size={16} /><Box ml={8}>Cards</Box></Center> },
-                { value: 'banner', label: <Center><IconLayoutList size={16} /><Box ml={8}>Banner</Box></Center> }
+                { value: 'banner', label: <Center><IconLayoutList size={16} /><Box ml={8}>Banner</Box></Center> },
+                { value: 'timeline', label: <Center><IconClock size={16} /><Box ml={8}>Timeline</Box></Center> }
               ]}
               value={viewType}
               onChange={handleViewChange}

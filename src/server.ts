@@ -378,7 +378,7 @@ app.put('/api/settings', requireAuth, async (
       return;
     }
 
-    if (setting_key === 'miniatures_view_type' && !['table', 'cards', 'banner'].includes(setting_value)) {
+    if (setting_key === 'miniatures_view_type' && !['table', 'cards', 'banner', 'timeline'].includes(setting_value)) {
       res.status(400).json({ message: 'Invalid view type value' });
       return;
     }
