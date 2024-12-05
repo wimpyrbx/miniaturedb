@@ -1,11 +1,11 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { useState } from 'react';
-import { Stack, Title, Text, Group, Card, Modal, Button, TextInput, MultiSelect, Select, Textarea, NumberInput, useMantineColorScheme, Radio, TagsInput, Badge, Center, Loader, SegmentedControl, Pagination, Box } from '@mantine/core';
+import { Stack, Title, Text, Group, Card, Button, TextInput, MultiSelect, Select, Textarea, NumberInput, useMantineColorScheme, Radio, TagsInput, Badge, Center, Loader, SegmentedControl, Pagination, Box } from '@mantine/core';
 import { DataTable } from '../components/ui/table/DataTable';
 import { Table } from '@mantine/core';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TableActions } from '../components/ui/tableactions/TableActions';
-import { IconEdit, IconPlus, IconPhoto, IconTable, IconLayoutGrid, IconLayoutList, IconSearch, IconPackage } from '@tabler/icons-react';
+import { IconEdit, IconPlus, IconPhoto, IconTable, IconLayoutGrid, IconLayoutList, IconSearch, IconPackage, IconTrash } from '@tabler/icons-react';
 import { AdminModal } from '../components/AdminModal';
 
 interface Category {
@@ -714,21 +714,194 @@ const BannerView = ({ minis, onEdit, currentPage, onPageChange }: {
   );
 };
 
+interface MiniatureModalProps {
+  opened: boolean;
+  onClose: () => void;
+  miniature: Mini | null;
+}
+
 const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => {
-  // ... existing state and hooks ...
+  const queryClient = useQueryClient();
+  const [formData, setFormData] = useState<Partial<Mini> | null>(null);
+  
+  // Add queries for base sizes and painted by options
+  const { data: baseSizes } = useQuery<BaseSize[]>({
+    queryKey: ['base_sizes'],
+    queryFn: async () => {
+      const response = await fetch('/api/base_sizes', { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch base sizes');
+      return response.json();
+    }
+  });
+
+  const { data: paintedByOptions } = useQuery<PaintedBy[]>({
+    queryKey: ['painted_by'],
+    queryFn: async () => {
+      const response = await fetch('/api/painted_by', { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch painted by options');
+      return response.json();
+    }
+  });
+  
+  // Load initial data when modal opens - this should only happen once
+  useEffect(() => {
+    if (opened && miniature) {
+      // Take a snapshot of the data when modal opens
+      setFormData(miniature);
+    } else {
+      setFormData(null);
+    }
+  }, [opened]); // Only depend on opened, not miniature
+
+  // Mutation for saving changes
+  const updateMutation = useMutation({
+    mutationFn: async (data: Partial<Mini>) => {
+      const response = await fetch(`/api/minis/${miniature?.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(data)
+      });
+      if (!response.ok) throw new Error('Failed to update miniature');
+      return response.json();
+    },
+    onSuccess: () => {
+      // Only invalidate queries after successful save
+      queryClient.invalidateQueries({ queryKey: ['minis'] });
+      onClose();
+    }
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData) return;
+    updateMutation.mutate(formData);
+  };
+
+  if (!formData) return null;
 
   return (
     <AdminModal
       opened={opened}
       onClose={onClose}
-      title="Miniature Details"
-      fullScreen
-      icon={<IconPackage size={24} color="white" />}
+      title={`Editing: ${formData.name}`}
+      size="70%"
+      icon={<IconPackage size={24} />}
+      rightHeaderText={`ID: ${formData.id}`}
     >
-      <form onSubmit={(e) => e.preventDefault()}>
-        <Group grow align="flex-start">
-          {/* Rest of your form content */}
-        </Group>
+      <form onSubmit={handleSubmit}>
+        <Stack>
+          {/* Main content area */}
+          <Group wrap="nowrap" align="flex-start">
+            {/* Left Column - 25% width */}
+            <Stack w="25%">
+              <Box 
+                style={{ 
+                  aspectRatio: '1',
+                  backgroundColor: 'var(--mantine-color-dark-4)',
+                  borderRadius: 'var(--mantine-radius-md)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px solid var(--mantine-color-dark-3)',
+                  position: 'relative',
+                  width: '100%'
+                }}
+              >
+                <IconPhoto style={{ width: '40%', height: '40%', opacity: 0.5 }} />
+                <Button 
+                  variant="light"
+                  color="red"
+                  size="xs"
+                  style={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    opacity: 0,
+                    transition: 'opacity 0.2s ease',
+                    '&:hover': {
+                      opacity: 1
+                    }
+                  }}
+                >
+                  Delete
+                </Button>
+                <IconTrash 
+                  style={{ 
+                    position: 'absolute',
+                    bottom: 8,
+                    right: 8,
+                    opacity: 0.7,
+                    color: 'var(--mantine-color-red-4)',
+                    backgroundColor: 'var(--mantine-color-dark-6)',
+                    padding: 4,
+                    borderRadius: 4
+                  }} 
+                  size={20}
+                />
+              </Box>
+
+              {/* Fields below image */}
+              <TextInput
+                label="Location"
+                value={formData.location || ''}
+                onChange={(e) => setFormData(prev => prev ? { ...prev, location: e.target.value } : null)}
+                required
+              />
+              <Select
+                label="Base Size"
+                data={baseSizes?.map(size => ({
+                  value: size.id.toString(),
+                  label: size.base_size_name.charAt(0).toUpperCase() + size.base_size_name.slice(1)
+                })) || []}
+                value={formData.base_size_id?.toString()}
+                onChange={(value) => setFormData(prev => prev ? { ...prev, base_size_id: parseInt(value || '3') } : null)}
+                required
+              />
+              <Stack gap="xs">
+                <Text size="sm" fw={500}>Painted By</Text>
+                <SegmentedControl
+                  fullWidth
+                  value={formData.painted_by_id?.toString()}
+                  onChange={(value) => setFormData(prev => prev ? { ...prev, painted_by_id: parseInt(value) } : null)}
+                  data={paintedByOptions?.map(option => ({
+                    value: option.id.toString(),
+                    label: option.painted_by_name.charAt(0).toUpperCase() + option.painted_by_name.slice(1)
+                  })) || []}
+                />
+              </Stack>
+            </Stack>
+
+            {/* Right Column - 75% width */}
+            <Stack w="75%">
+              <TextInput
+                label="Name"
+                value={formData.name || ''}
+                onChange={(e) => setFormData(prev => prev ? { ...prev, name: e.target.value } : null)}
+                required
+              />
+              <NumberInput
+                label="Quantity"
+                value={formData.quantity || 1}
+                onChange={(value) => setFormData(prev => prev ? { ...prev, quantity: typeof value === 'number' ? value : 1 } : null)}
+                min={0}
+                required
+              />
+              <Textarea
+                label="Description"
+                value={formData.description || ''}
+                onChange={(e) => setFormData(prev => prev ? { ...prev, description: e.target.value } : null)}
+                minRows={3}
+                placeholder="Enter miniature description..."
+              />
+            </Stack>
+          </Group>
+
+          <Group justify="flex-end" mt="xl">
+            <Button variant="default" onClick={onClose}>Cancel</Button>
+            <Button type="submit" color="green">Save Changes</Button>
+          </Group>
+        </Stack>
       </form>
     </AdminModal>
   );
@@ -910,21 +1083,14 @@ export default function Miniatures() {
       )}
 
       {/* Edit Modal */}
-      <Modal
+      <MiniatureModal
         opened={!!editingMini}
         onClose={() => setEditingMini(null)}
-        title="Edit Miniature"
-        size="xl"
-      >
-        {editingMini && (
-          <Stack>
-            {/* ... rest of the modal content ... */}
-          </Stack>
-        )}
-      </Modal>
+        miniature={editingMini}
+      />
 
       {/* Add Modal */}
-      <Modal
+      <AdminModal
         opened={isAddingMini}
         onClose={() => setIsAddingMini(false)}
         title="Add Miniature"
@@ -933,7 +1099,7 @@ export default function Miniatures() {
         <Stack>
           {/* Add form content here */}
         </Stack>
-      </Modal>
+      </AdminModal>
     </Stack>
   );
 } 

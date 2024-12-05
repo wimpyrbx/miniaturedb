@@ -1,4 +1,4 @@
-import { Modal, Title, Group, Box, useMantineTheme, useMantineColorScheme } from '@mantine/core';
+import { Modal, Title, Group, Box, useMantineTheme, useMantineColorScheme, Text } from '@mantine/core';
 import { ReactNode } from 'react';
 
 interface AdminModalProps {
@@ -9,6 +9,7 @@ interface AdminModalProps {
   size?: string | number;
   icon?: ReactNode;
   fullScreen?: boolean;
+  rightHeaderText?: string;
 }
 
 export function AdminModal({ 
@@ -18,7 +19,8 @@ export function AdminModal({
   children, 
   size = 'lg',
   icon,
-  fullScreen = false
+  fullScreen = false,
+  rightHeaderText
 }: AdminModalProps) {
   const theme = useMantineTheme();
   const { colorScheme } = useMantineColorScheme();
@@ -51,6 +53,7 @@ export function AdminModal({
       <Box>
         <Group 
           p="md" 
+          justify="space-between"
           style={{
             backgroundColor: isDark ? theme.colors.green[9] : theme.colors.green[9],
             borderTopLeftRadius: theme.radius.md,
@@ -61,6 +64,9 @@ export function AdminModal({
             {icon}
             <Title order={3} c="white">{title}</Title>
           </Group>
+          {rightHeaderText && (
+            <Text c="white" fw={500}>{rightHeaderText}</Text>
+          )}
         </Group>
         <Box p="md">
           {children}
