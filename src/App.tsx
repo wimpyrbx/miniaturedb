@@ -92,6 +92,8 @@ export default function App() {
     loading: true
   });
 
+  const queryClient = useMemo(() => new QueryClient(), []);
+
   useEffect(() => {
     const checkAuthentication = async () => {
       try {
@@ -118,6 +120,19 @@ export default function App() {
             if (settings.styletheme) {
               setStyle(settings.styletheme === 'default' ? defaultStyle : compactStyle);
             }
+
+            // Prefetch miniatures data
+            queryClient.prefetchQuery({
+              queryKey: ['miniatures'],
+              queryFn: async () => {
+                const response = await fetch('/api/miniatures');
+                if (!response.ok) {
+                  throw new Error('Network response was not ok');
+                }
+                return response.json();
+              }
+            });
+
           } catch (error) {
             console.error('Failed to load user settings:', error);
           }
@@ -131,7 +146,7 @@ export default function App() {
     };
 
     checkAuthentication();
-  }, []);
+  }, [queryClient]);
 
   useEffect(() => {
     if (!authState.authenticated) return;
@@ -161,8 +176,6 @@ export default function App() {
       window.removeEventListener('color-scheme-change', handleColorSchemeChange);
     };
   }, [authState.authenticated]);
-
-  const queryClient = useMemo(() => new QueryClient(), []);
 
   const appContent = authState.loading ? (
     <Center style={{ width: '100vw', height: '100vh' }}>
