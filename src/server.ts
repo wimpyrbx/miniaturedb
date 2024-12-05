@@ -292,6 +292,16 @@ app.get('/api/settings', requireAuth, async (
       return;
     }
 
+    // Create user_preferences table if it doesn't exist
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS user_preferences (
+        username TEXT NOT NULL,
+        setting_key TEXT NOT NULL,
+        setting_value TEXT NOT NULL,
+        PRIMARY KEY (username, setting_key)
+      )
+    `).run();
+
     const settings = db.prepare(
       'SELECT setting_key, setting_value FROM user_preferences WHERE username = ?'
     ).all(username);
@@ -330,6 +340,16 @@ app.put('/api/settings', requireAuth, async (
       res.status(400).json({ message: 'Invalid setting_key' });
       return;
     }
+
+    // Create user_preferences table if it doesn't exist
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS user_preferences (
+        username TEXT NOT NULL,
+        setting_key TEXT NOT NULL,
+        setting_value TEXT NOT NULL,
+        PRIMARY KEY (username, setting_key)
+      )
+    `).run();
 
     // Update or insert the setting
     db.prepare(`

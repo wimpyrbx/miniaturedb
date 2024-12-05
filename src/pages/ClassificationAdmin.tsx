@@ -10,6 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TableActions } from '../components/ui/tableactions/TableActions';
 import { modals } from '@mantine/modals';
 import { DataTable } from '../components/ui/table/DataTable';
+import { AdminModal } from '../components/AdminModal';
 
 // Types
 interface MiniatureType {
@@ -368,6 +369,8 @@ export function ClassificationAdmin() {
 
   // Form handlers
   const handleTypeSubmit = () => {
+    if (!formName.trim()) return;
+    
     if (editType) {
       typeMutation.mutate({ id: editType.id, name: formName });
     } else {
@@ -700,8 +703,8 @@ export function ClassificationAdmin() {
         )}
       </Stack>
 
-      {/* Modals */}
-      <Modal 
+      {/* Type Modal */}
+      <AdminModal
         opened={!!editType || isAddingType} 
         onClose={() => {
           setEditType(null);
@@ -709,192 +712,160 @@ export function ClassificationAdmin() {
           setFormName('');
         }}
         title={editType ? 'Edit Type' : 'Add Type'}
-        overlayProps={{ fixed: true }}
-        keepMounted={false}
+        size="sm"
       >
-        <Stack>
-          <TextInput
-            label="Type Name"
-            value={formName}
-            onChange={(e) => setFormName(e.target.value)}
-          />
-          <Group justify="flex-end">
-            <Button
-              variant="light"
-              onClick={() => {
-                setEditType(null);
-                setIsAddingType(false);
-                setFormName('');
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleTypeSubmit}
-              disabled={!formName.trim()}
-            >
-              {editType ? 'Save' : 'Create'}
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        <TextInput
+          value={formName}
+          onChange={(e) => setFormName(e.target.value)}
+          placeholder="Enter type name"
+          mb="md"
+        />
+        <Button fullWidth onClick={handleTypeSubmit} color="green">
+          {editType ? 'Update' : 'Create'}
+        </Button>
+      </AdminModal>
 
-      <Modal
-        opened={isAddingCategory}
+      {/* Category Assignment Modal */}
+      <AdminModal
+        opened={isAddingCategory} 
         onClose={() => {
           setIsAddingCategory(false);
           setSelectedCategories([]);
         }}
-        title="Add Categories"
+        title="Manage Categories"
         size="lg"
-        styles={{
-          title: {
-            fontSize: '1.2rem',
-            fontWeight: 600
-          },
-          body: {
-            paddingTop: 0,
-            paddingBottom: 'var(--mantine-spacing-xs)'
-          },
-          header: {
-            paddingBottom: 'var(--mantine-spacing-xs)'
-          },
-          inner: {
-            padding: 'var(--mantine-spacing-xs)'
-          }
-        }}
-        centered
       >
-        <Stack>
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            if (selectedType) {
-              categoryMutation.mutate({
-                typeId: selectedType.id,
-                categoryIds: selectedCategories.map(id => parseInt(id))
-              });
-            }
-          }}>
-            {isAddingCategory && (
-              <Stack gap="xs">
-                <Text size="sm" c="dimmed">Select categories to assign to type <Text span fw={600}>{selectedType?.name}</Text></Text>
-                <Box style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
-                  <Group px="xs" py={6}>
-                    <Text size="sm" fw={600} style={{ flex: 1 }}>Category Name</Text>
-                  </Group>
-                </Box>
-                <ScrollArea h={400}>
-                  <Stack gap={4} p="xs">
-                    {categoriesWithSelection.map((category: CategoryWithSelection) => (
-                      <UnstyledButton
-                        key={category.id}
-                        onClick={() => {
-                          const categoryId = category.id.toString();
-                          if (selectedCategories.includes(categoryId)) {
-                            setSelectedCategories(prev => prev.filter(id => id !== categoryId));
-                          } else {
-                            setSelectedCategories(prev => [...prev, categoryId]);
-                          }
-                        }}
-                        style={{
-                          padding: '3px 4px',
-                          borderRadius: theme.radius.sm,
-                          border: `1px solid ${
-                            colorScheme === 'dark' 
-                              ? theme.colors.dark[5] 
-                              : theme.colors.gray[3]
-                          }`,
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          if (selectedType) {
+            categoryMutation.mutate({
+              typeId: selectedType.id,
+              categoryIds: selectedCategories.map(id => parseInt(id))
+            });
+          }
+        }}>
+          <Stack gap="xs">
+            <Text size="sm" c="dimmed">Select categories to assign to type <Text span fw={600}>{selectedType?.name}</Text></Text>
+            
+            <Box 
+              style={{ 
+                border: `1px solid ${colorScheme === 'dark' ? theme.colors.dark[4] : theme.colors.gray[3]}`,
+                borderRadius: theme.radius.sm,
+                overflow: 'hidden'
+              }}
+            >
+              <ScrollArea h={400} pr={6}>
+                <Stack gap={4} p="xs">
+                  {categoriesWithSelection.map((category: CategoryWithSelection) => (
+                    <UnstyledButton
+                      key={category.id}
+                      onClick={() => {
+                        const categoryId = category.id.toString();
+                        if (selectedCategories.includes(categoryId)) {
+                          setSelectedCategories(prev => prev.filter(id => id !== categoryId));
+                        } else {
+                          setSelectedCategories(prev => [...prev, categoryId]);
+                        }
+                      }}
+                      style={{
+                        padding: '6px 8px',
+                        borderRadius: theme.radius.sm,
+                        border: `1px solid ${
+                          colorScheme === 'dark' 
+                            ? theme.colors.dark[5] 
+                            : theme.colors.gray[3]
+                        }`,
+                        backgroundColor: selectedCategories.includes(category.id.toString())
+                          ? colorScheme === 'dark'
+                            ? theme.colors.green[9]
+                            : theme.colors.green[0]
+                          : 'transparent',
+                        '&:hover': {
                           backgroundColor: selectedCategories.includes(category.id.toString())
                             ? colorScheme === 'dark'
-                              ? theme.colors.green[9]
-                              : theme.colors.green[0]
-                            : 'transparent',
-                          '&:hover': {
-                            backgroundColor: selectedCategories.includes(category.id.toString())
-                              ? colorScheme === 'dark'
-                                ? theme.colors.green[8]
-                                : theme.colors.green[1]
-                              : colorScheme === 'dark'
-                                ? theme.colors.dark[5]
-                                : theme.colors.gray[0]
-                          },
-                          transition: 'all 500ms ease'
-                        }}
-                      >
-                        <Group gap="xs" style={{ flex: 1 }}>
-                          {selectedCategories.includes(category.id.toString()) ? (
-                            <IconCircleCheck 
-                              size={16} 
-                              style={{ 
-                                color: colorScheme === 'dark' 
-                                  ? theme.colors.green[4]
-                                  : theme.colors.green[6],
-                                strokeWidth: 2.5
-                              }} 
-                            />
-                          ) : (
-                            <IconCircle 
-                              size={16} 
-                              style={{ 
-                                color: colorScheme === 'dark'
-                                  ? theme.colors.dark[3]
-                                  : theme.colors.gray[4],
-                                strokeWidth: 1.5
-                              }} 
-                            />
-                          )}
-                          <Text 
-                            size="sm" 
-                            fw={selectedCategories.includes(category.id.toString()) ? 600 : 500}
-                            c={selectedCategories.includes(category.id.toString())
-                              ? colorScheme === 'dark'
-                                ? 'green.4'
-                                : 'green.7'
-                              : undefined}
-                            style={{ flex: 1 }}
-                          >
-                            {category.name}
-                          </Text>
-                        </Group>
-                      </UnstyledButton>
-                    ))}
-                  </Stack>
-                </ScrollArea>
-                <Group justify="space-between" align="center" pt="xs">
-                  <Text size="sm" c="dimmed">
-                    {selectedCategories.length === 0 
-                      ? "No categories selected" 
-                      : `${selectedCategories.length} ${selectedCategories.length === 1 ? 'category' : 'categories'} selected`
-                    }
-                  </Text>
-                  <Group>
-                    <Button 
-                      variant="default" 
-                      onClick={() => {
-                        setIsAddingCategory(false);
-                        setSelectedCategories([]);
+                              ? theme.colors.green[8]
+                              : theme.colors.green[1]
+                            : colorScheme === 'dark'
+                              ? theme.colors.dark[5]
+                              : theme.colors.gray[0]
+                        },
+                        transition: 'all 150ms ease'
                       }}
-                      size="sm"
                     >
-                      Cancel
-                    </Button>
-                    <Button 
-                      type="submit"
-                      size="sm"
-                      color="green"
-                    >
-                      Save Changes
-                    </Button>
-                  </Group>
-                </Group>
-                {categoriesWithSelection.length === 0 && (
-                  <Text c="dimmed" ta="center" fz="sm">No categories available</Text>
-                )}
-              </Stack>
+                      <Group gap="xs" style={{ flex: 1 }}>
+                        {selectedCategories.includes(category.id.toString()) ? (
+                          <IconCircleCheck 
+                            size={16} 
+                            style={{ 
+                              color: colorScheme === 'dark' 
+                                ? theme.colors.green[4]
+                                : theme.colors.green[6],
+                              strokeWidth: 2.5
+                            }} 
+                          />
+                        ) : (
+                          <IconCircle 
+                            size={16} 
+                            style={{ 
+                              color: colorScheme === 'dark'
+                                ? theme.colors.dark[3]
+                                : theme.colors.gray[4],
+                              strokeWidth: 1.5
+                            }} 
+                          />
+                        )}
+                        <Text 
+                          size="sm" 
+                          fw={selectedCategories.includes(category.id.toString()) ? 600 : 500}
+                          c={selectedCategories.includes(category.id.toString())
+                            ? colorScheme === 'dark'
+                              ? 'green.4'
+                              : 'green.7'
+                            : undefined}
+                          style={{ flex: 1 }}
+                        >
+                          {category.name}
+                        </Text>
+                      </Group>
+                    </UnstyledButton>
+                  ))}
+                </Stack>
+              </ScrollArea>
+            </Box>
+
+            <Group justify="space-between" align="center">
+              <Text size="sm" c="dimmed">
+                {selectedCategories.length === 0 
+                  ? "No categories selected" 
+                  : `${selectedCategories.length} ${selectedCategories.length === 1 ? 'category' : 'categories'} selected`
+                }
+              </Text>
+              <Group>
+                <Button 
+                  variant="default" 
+                  onClick={() => {
+                    setIsAddingCategory(false);
+                    setSelectedCategories([]);
+                  }}
+                  size="sm"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit"
+                  size="sm"
+                  color="green"
+                >
+                  Save Changes
+                </Button>
+              </Group>
+            </Group>
+            {categoriesWithSelection.length === 0 && (
+              <Text c="dimmed" ta="center" fz="sm">No categories available</Text>
             )}
-          </form>
-        </Stack>
-      </Modal>
+          </Stack>
+        </form>
+      </AdminModal>
     </>
   );
 } 

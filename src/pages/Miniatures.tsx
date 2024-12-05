@@ -5,7 +5,8 @@ import { DataTable } from '../components/ui/table/DataTable';
 import { Table } from '@mantine/core';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TableActions } from '../components/ui/tableactions/TableActions';
-import { IconEdit, IconPlus, IconPhoto, IconTable, IconLayoutGrid, IconLayoutList, IconSearch } from '@tabler/icons-react';
+import { IconEdit, IconPlus, IconPhoto, IconTable, IconLayoutGrid, IconLayoutList, IconSearch, IconPackage } from '@tabler/icons-react';
+import { AdminModal } from '../components/AdminModal';
 
 interface Category {
   id: number;
@@ -710,6 +711,26 @@ const BannerView = ({ minis, onEdit, currentPage, onPageChange }: {
         ))}
       </div>
     </Stack>
+  );
+};
+
+const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => {
+  // ... existing state and hooks ...
+
+  return (
+    <AdminModal
+      opened={opened}
+      onClose={onClose}
+      title="Miniature Details"
+      fullScreen
+      icon={<IconPackage size={24} color="white" />}
+    >
+      <form onSubmit={(e) => e.preventDefault()}>
+        <Group grow align="flex-start">
+          {/* Rest of your form content */}
+        </Group>
+      </form>
+    </AdminModal>
   );
 };
 

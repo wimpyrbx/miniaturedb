@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { Grid, Title, Card, Button, Group, Text, Stack, Table, Modal, TextInput, Notification, Center, Loader, Box, useMantineColorScheme, Switch, Pagination } from '@mantine/core';
-import { IconPlus, IconEdit, IconCheck, IconX } from '@tabler/icons-react';
+import { IconPlus, IconEdit, IconCheck, IconX, IconBuilding } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   getCompanies, getProductLines, getProductSets,
@@ -20,6 +20,7 @@ import { deleteProductSet } from '../api/productinfo/sets/delete';
 import { TableActions } from '../components/ui/tableactions/TableActions';
 import { modals } from '@mantine/modals';
 import { DataTable } from '../components/ui/table/DataTable';
+import { AdminModal } from '../components/AdminModal';
 
 // Simple form types
 type CompanyForm = { name: string };
@@ -834,7 +835,7 @@ export function ProductAdmin() {
         </Box>
 
       {/* Modals */}
-      <Modal 
+      <AdminModal
         opened={!!editCompany || isAddingCompany} 
         onClose={() => {
           setEditCompany(null);
@@ -842,22 +843,22 @@ export function ProductAdmin() {
           setFormName('');
         }}
         title={editCompany ? 'Edit Company' : 'Add Company'}
-        overlayProps={{ fixed: true }}
-        keepMounted={false}
+        icon={<IconBuilding size={24} />}
+        size="sm"
       >
-        <Stack>
-          <TextInput
-            label="Company Name"
-            value={formName}
-            onChange={(e) => setFormName(e.target.value)}
-          />
-          <Button onClick={handleCompanySubmit}>
-            {editCompany ? 'Update' : 'Create'}
-          </Button>
-        </Stack>
-      </Modal>
+        <TextInput
+          value={formName}
+          onChange={(e) => setFormName(e.target.value)}
+          placeholder="Enter company name"
+          mb="md"
+        />
+        <Button fullWidth onClick={handleCompanySubmit} color="green">
+          {editCompany ? 'Update' : 'Create'}
+        </Button>
+      </AdminModal>
 
-      <Modal 
+      {/* Product Line Modal */}
+      <AdminModal
         opened={!!editLine || isAddingLine} 
         onClose={() => {
           setEditLine(null);
@@ -865,22 +866,21 @@ export function ProductAdmin() {
           setFormName('');
         }}
         title={editLine ? 'Edit Product Line' : 'Add Product Line'}
-        overlayProps={{ fixed: true }}
-        keepMounted={false}
+        size="sm"
       >
-        <Stack>
-          <TextInput
-            label="Product Line Name"
-            value={formName}
-            onChange={(e) => setFormName(e.target.value)}
-          />
-          <Button onClick={handleLineSubmit}>
-            {editLine ? 'Update' : 'Create'}
-          </Button>
-        </Stack>
-      </Modal>
+        <TextInput
+          value={formName}
+          onChange={(e) => setFormName(e.target.value)}
+          placeholder="Enter product line name"
+          mb="md"
+        />
+        <Button fullWidth onClick={handleLineSubmit} color="green">
+          {editLine ? 'Update' : 'Create'}
+        </Button>
+      </AdminModal>
 
-      <Modal 
+      {/* Product Set Modal */}
+      <AdminModal
         opened={!!editSet || isAddingSet} 
         onClose={() => {
           setEditSet(null);
@@ -888,20 +888,18 @@ export function ProductAdmin() {
           setFormName('');
         }}
         title={editSet ? 'Edit Product Set' : 'Add Product Set'}
-        overlayProps={{ fixed: true }}
-        keepMounted={false}
+        size="sm"
       >
-        <Stack>
-          <TextInput
-            label="Product Set Name"
-            value={formName}
-            onChange={(e) => setFormName(e.target.value)}
-          />
-          <Button onClick={handleSetSubmit}>
-            {editSet ? 'Update' : 'Create'}
-          </Button>
-        </Stack>
-      </Modal>
+        <TextInput
+          value={formName}
+          onChange={(e) => setFormName(e.target.value)}
+          placeholder="Enter product set name"
+          mb="md"
+        />
+        <Button fullWidth onClick={handleSetSubmit} color="green">
+          {editSet ? 'Update' : 'Create'}
+        </Button>
+      </AdminModal>
 
       {/* Notification */}
       {notification.show && (
