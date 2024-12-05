@@ -174,25 +174,42 @@ const TableView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp }:
     currentPage * ITEMS_PER_PAGE
   );
 
+  const capitalizeFirst = (str: string) => {
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  };
+
   return (
-    <Table>
-      <Table.Thead>
+    <Table highlightOnHover withTableBorder>
+      <Table.Thead style={{ 
+        backgroundColor: 'var(--mantine-color-dark-6)',
+        borderBottom: '2px solid var(--mantine-color-dark-4)'
+      }}>
         <Table.Tr>
-          <Table.Th style={{ width: '80px' }}>Image</Table.Th>
-          <Table.Th>Name</Table.Th>
-          <Table.Th>Location</Table.Th>
-          <Table.Th>Base Size</Table.Th>
-          <Table.Th>Painted By</Table.Th>
-          <Table.Th style={{ width: '80px' }}>Actions</Table.Th>
+          <Table.Th style={{ width: '60px' }}></Table.Th>
+          <Table.Th>Miniature Info</Table.Th>
+          <Table.Th>Classification</Table.Th>
+          <Table.Th>Product</Table.Th>
+          <Table.Th>Storage</Table.Th>
         </Table.Tr>
       </Table.Thead>
       <Table.Tbody>
         {paginatedMinis.map((mini) => (
-          <Table.Tr key={mini.id}>
+          <Table.Tr 
+            key={mini.id} 
+            onClick={() => onEdit(mini)}
+            style={{ 
+              cursor: 'pointer',
+              transition: 'background-color 0.2s',
+              '&:hover': {
+                backgroundColor: 'var(--mantine-color-dark-6)'
+              }
+            }}
+          >
+            {/* Image Column */}
             <Table.Td>
               <div style={{ 
-                width: '60px',
-                height: '60px',
+                width: '50px',
+                height: '50px',
                 backgroundColor: 'var(--mantine-color-dark-4)',
                 borderRadius: 'var(--mantine-radius-sm)',
                 display: 'flex',
@@ -216,40 +233,111 @@ const TableView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp }:
                     }}
                   />
                 ) : (
-                  <IconPhoto size={24} style={{ opacity: 0.5 }} />
+                  <IconPhoto size={20} style={{ opacity: 0.5 }} />
                 )}
               </div>
             </Table.Td>
+
+            {/* Miniature Info Column */}
             <Table.Td>
               <Stack gap={4}>
-                <Text size="sm">{mini.name}</Text>
-                <Group gap={4}>
-                  {mini.types.map(type => (
-                    <Badge 
-                      key={type.id} 
-                      size="xs" 
-                      color={type.proxy_type ? 'blue' : 'teal'}
-                      variant="dot"
-                    >
-                      {type.name}
+                <Group justify="space-between" wrap="nowrap">
+                  <Text fw={500} size="sm" style={{ flex: 1 }}>{mini.name}</Text>
+                  {mini.quantity > 1 && (
+                    <Badge size="sm" variant="light" color="blue">
+                      ×{mini.quantity}
                     </Badge>
-                  ))}
+                  )}
                 </Group>
+                <Group gap={4}>
+                  <Text size="xs" c="dimmed" fw={500}>Base Size:</Text>
+                  <Text size="xs" c="dimmed">
+                    {mini.base_size_name ? capitalizeFirst(mini.base_size_name) : 'None'}
+                  </Text>
+                </Group>
+                {mini.painted_by_name && (
+                  <Text size="xs" c="dimmed">
+                    {mini.painted_by_name.toLowerCase() === 'prepainted' ? 'Prepainted' : `Painted by ${mini.painted_by_name}`}
+                  </Text>
+                )}
               </Stack>
             </Table.Td>
-            <Table.Td>{mini.location}</Table.Td>
-            <Table.Td>{mini.base_size_name || 'No Base'}</Table.Td>
-            <Table.Td>{mini.painted_by_name || '-'}</Table.Td>
+
+            {/* Classification Column */}
             <Table.Td>
-              <Button 
-                variant="subtle" 
-                color="blue" 
-                onClick={() => onEdit(mini)}
-                size="xs"
-                style={{ padding: '4px', minWidth: 0, width: '24px', height: '24px' }}
-              >
-                <IconEdit size={14} />
-              </Button>
+              <Stack gap={8}>
+                {/* Main Types */}
+                {mini.types.filter(type => !type.proxy_type).length > 0 && (
+                  <Group gap={4}>
+                    {mini.types
+                      .filter(type => !type.proxy_type)
+                      .map(type => (
+                        <Badge 
+                          key={type.id} 
+                          size="sm"
+                          variant="filled"
+                          color="teal"
+                        >
+                          {type.name}
+                        </Badge>
+                      ))}
+                  </Group>
+                )}
+                
+                {/* Proxy Types */}
+                {mini.types.filter(type => type.proxy_type).length > 0 && (
+                  <Group gap={4}>
+                    {mini.types
+                      .filter(type => type.proxy_type)
+                      .map(type => (
+                        <Badge 
+                          key={type.id} 
+                          size="xs"
+                          variant="light"
+                          color="gray"
+                        >
+                          {type.name}
+                        </Badge>
+                      ))}
+                  </Group>
+                )}
+
+                {/* Tags */}
+                {mini.tags && mini.tags.length > 0 && (
+                  <Group gap={4}>
+                    {mini.tags.map(tag => (
+                      <Badge 
+                        key={tag.id} 
+                        size="xs" 
+                        variant="dot"
+                        color="blue"
+                      >
+                        {tag.name}
+                      </Badge>
+                    ))}
+                  </Group>
+                )}
+              </Stack>
+            </Table.Td>
+
+            {/* Product Column */}
+            <Table.Td>
+              <Stack gap={2}>
+                {mini.company_name && (
+                  <Text size="xs" c="dimmed">{mini.company_name}</Text>
+                )}
+                {mini.product_line_name && (
+                  <Text size="xs" c="dimmed">{mini.product_line_name}</Text>
+                )}
+                {mini.product_set_name && (
+                  <Text size="sm" fw={500}>{mini.product_set_name}</Text>
+                )}
+              </Stack>
+            </Table.Td>
+
+            {/* Storage Column */}
+            <Table.Td>
+              <Text size="sm">{mini.location || 'No location'}</Text>
             </Table.Td>
           </Table.Tr>
         ))}
@@ -1530,7 +1618,7 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
               </Group>
 
               {/* Description */}
-              <Box h={100} mb="md">
+              <Box>
                 <Textarea
                   label="Description"
                   value={formData?.description || ''}
@@ -1539,14 +1627,43 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
                   maxRows={6}
                   autosize={false}
                   placeholder="Enter miniature description..."
-                  style={{ height: '100%' }}
+                  styles={{
+                    wrapper: {
+                      height: '100px'
+                    },
+                    input: {
+                      height: '100%'
+                    }
+                  }}
                 />
               </Box>
+
+              {/* Tags Section */}
+              <Stack gap="xs">
+                <Text fw={500}>Tags</Text>
+                <TagsInput
+                  placeholder="Add tags..."
+                  value={formData?.tags?.map((t: { id: number, name: string }) => t.name) || []}
+                  onChange={(values) => {
+                    setFormData(prev => {
+                      if (!prev) return null;
+                      return {
+                        ...prev,
+                        tags: values.map(name => ({
+                          id: prev.tags?.find(t => t.name === name)?.id || -1,
+                          name
+                        }))
+                      };
+                    });
+                  }}
+                  data={existingTags?.map((t: { id: number, name: string }) => t.name) || []}
+                />
+              </Stack>
 
               {/* Types Section */}
               <Box 
                 p="sm"
-                mt="md"
+                mt="xs"
                 style={{ 
                   border: '1px solid var(--mantine-color-default-border)',
                   borderRadius: 'var(--mantine-radius-sm)',
