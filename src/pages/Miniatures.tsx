@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { useState } from 'react';
-import { Stack, Title, Text, Group, Card, Button, TextInput, MultiSelect, Select, Textarea, NumberInput, useMantineColorScheme, Radio, TagsInput, Badge, Center, Loader, SegmentedControl, Pagination, Box } from '@mantine/core';
+import { Stack, Title, Text, Group, Card, Button, TextInput, MultiSelect, Select, Textarea, NumberInput, useMantineColorScheme, Radio, TagsInput, Badge, Center, Loader, SegmentedControl, Pagination, Box, Grid } from '@mantine/core';
 import { DataTable } from '../components/ui/table/DataTable';
 import { Table } from '@mantine/core';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -632,76 +632,107 @@ interface MiniatureModalProps {
 
 const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => {
   const queryClient = useQueryClient();
-  const [formData, setFormData] = useState<Partial<Mini> | null>(null);
+  const { colorScheme } = useMantineColorScheme();
+  const [formData, setFormData] = useState<Mini | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageStatus, setImageStatus] = useState<ImageStatus>({ hasOriginal: false, hasThumb: false });
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isDeletingImage, setIsDeletingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // Add queries for base sizes, painted by, and product sets
-  const { data: baseSizes } = useQuery<BaseSize[]>({
+
+  // Query for base sizes
+  const { data: baseSizes, isLoading: isLoadingBaseSizes } = useQuery({
     queryKey: ['base_sizes'],
     queryFn: async () => {
-      const response = await fetch('/api/base_sizes', { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch base sizes');
+      const response = await fetch('/api/base_sizes');
+      if (!response.ok) {
+        throw new Error('Failed to fetch base sizes');
+      }
       return response.json();
     }
   });
 
-  const { data: paintedByOptions } = useQuery<PaintedBy[]>({
+  // Query for painted by options
+  const { data: paintedByOptions, isLoading: isLoadingPaintedBy } = useQuery({
     queryKey: ['painted_by'],
     queryFn: async () => {
-      const response = await fetch('/api/painted_by', { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch painted by options');
+      const response = await fetch('/api/painted_by');
+      if (!response.ok) {
+        throw new Error('Failed to fetch painted by options');
+      }
       return response.json();
     }
   });
 
-  const { data: productSetOptions, isLoading: isLoadingProductSets } = useQuery({
+  // Query for product sets
+  const { data: productSets, isLoading: isLoadingProductSets } = useQuery({
     queryKey: ['product_sets'],
     queryFn: async () => {
-      const response = await fetch('/api/productinfo/sets', { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch product sets');
+      const response = await fetch('/api/productinfo/sets');
+      if (!response.ok) {
+        throw new Error('Failed to fetch product sets');
+      }
       const sets = await response.json();
-      
-      // Convert to simple value/label pairs
-      return sets.map((set: any) => ({
+      return sets.map((set: ProductSet) => ({
         value: set.id.toString(),
-        label: `${set.company_name} » ${set.product_line_name} » ${set.name}`
-      })).sort((a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label));
+        label: [set.company_name, set.product_line_name, set.name]
+          .filter(Boolean)
+          .join(' » ')
+      }));
     }
   });
 
-  // Check image status when modal opens
+  // Add tags query
+  const { data: existingTags } = useQuery({
+    queryKey: ['tags'],
+    queryFn: async () => {
+      const response = await fetch('/api/tags');
+      if (!response.ok) {
+        throw new Error('Failed to fetch tags');
+      }
+      return response.json();
+    }
+  });
+
+  // Add tags mutation
+  const updateTagsMutation = useMutation({
+    mutationFn: async ({ miniId, tags }: { miniId: number, tags: Array<{ id: number, name: string }> }) => {
+      const response = await fetch(`/api/minis/${miniId}/tags`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tags }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update tags');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['miniatures'] });
+    }
+  });
+
   useEffect(() => {
     if (opened && miniature) {
-      console.log('Checking image status for miniature:', miniature.id);
+      setFormData(miniature);
+      // Check image status when modal opens
       checkMiniatureImageStatus(miniature.id).then(status => {
         console.log('Image status received:', status);
         setImageStatus(status);
       });
-    }
-  }, [opened, miniature?.id]);
-  
-  // Load initial data when modal opens
-  useEffect(() => {
-    if (opened && miniature) {
-      console.log('Setting form data:', miniature);
-      setFormData(miniature);
     } else {
       setFormData(null);
+      setImageFile(null);
+      setImagePreview(null);
+      setImageStatus({ hasOriginal: false, hasThumb: false });
     }
-  }, [opened]);
+  }, [opened, miniature]);
 
-  // Debug render
-  console.log('Render state:', {
-    formData: formData?.id,
-    imageStatus,
-    imagePath: formData?.id ? getMiniatureImagePath(formData.id, 'original') : null
-  });
-
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (!file || !formData?.id) return;
 
     setIsUploadingImage(true);
@@ -721,57 +752,67 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
 
     setIsDeletingImage(true);
     try {
-      const success = await deleteMiniatureImage(formData.id);
-      if (success) {
-        setImageStatus({ hasOriginal: false, hasThumb: false });
-      }
+      await deleteMiniatureImage(formData.id);
+      setImageStatus({ hasOriginal: false, hasThumb: false });
     } finally {
       setIsDeletingImage(false);
     }
   };
 
-  // Mutation for saving changes
-  const updateMutation = useMutation({
-    mutationFn: async (data: Partial<Mini>) => {
-      const response = await fetch(`/api/minis/${miniature?.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(data)
-      });
-      if (!response.ok) throw new Error('Failed to update miniature');
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['minis'] });
-      onClose();
-    }
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData) return;
-    updateMutation.mutate(formData);
+
+    try {
+      // Update basic miniature data
+      const response = await fetch(`/api/minis/${formData.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update miniature');
+      }
+
+      // Update tags if they've changed
+      const currentTags = miniature?.tags || [];
+      const newTags = formData.tags || [];
+      
+      if (JSON.stringify(currentTags) !== JSON.stringify(newTags)) {
+        await updateTagsMutation.mutateAsync({
+          miniId: formData.id,
+          tags: newTags
+        });
+      }
+
+      // Handle image upload if needed
+      if (imageFile) {
+        await uploadMiniatureImage(formData.id, imageFile);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['miniatures'] });
+      onClose();
+    } catch (error) {
+      console.error('Error updating miniature:', error);
+    }
   };
-
-  if (!formData) return null;
-
-  const imagePath = getMiniatureImagePath(formData.id!, 'original');
 
   return (
     <AdminModal
       opened={opened}
       onClose={onClose}
-      title={`Editing: ${formData.name}`}
+      title={miniature ? 'Edit Miniature' : 'Add Miniature'}
       size="70%"
-      icon={<IconPackage size={24} />}
-      rightHeaderText={`ID: ${formData.id}`}
     >
       <form onSubmit={handleSubmit}>
-        <Stack>
-          <Group wrap="nowrap" align="flex-start">
-            {/* Left Column - 25% width */}
-            <Stack w="25%">
+        <Grid>
+          {/* Left Column - 30% width */}
+          <Grid.Col span={4}>
+            <Stack>
+              {/* Image upload section */}
               <Box 
                 style={{ 
                   aspectRatio: '1',
@@ -787,29 +828,15 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
                 }}
               >
                 {imageStatus.hasOriginal ? (
-                  <>
-                    <img 
-                      key={imagePath}
-                      src={imagePath}
-                      alt={formData.name}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'contain'
-                      }}
-                      onError={(e) => {
-                        console.error('Image failed to load:', imagePath);
-                        const img = e.target as HTMLImageElement;
-                        img.style.display = 'none';
-                      }}
-                      onLoad={() => console.log('Image loaded successfully:', imagePath)}
-                    />
-                    <div style={{ display: 'none' }}>
-                      Debug info:
-                      Path: {imagePath}
-                      Status: {JSON.stringify(imageStatus)}
-                    </div>
-                  </>
+                  <img 
+                    src={formData?.id ? getMiniatureImagePath(formData.id, 'original') : ''}
+                    alt={formData?.name}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain'
+                    }}
+                  />
                 ) : (
                   <IconPhoto style={{ width: '40%', height: '40%', opacity: 0.5 }} />
                 )}
@@ -840,7 +867,7 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
                   accept="image/jpeg,image/png,image/webp"
                 />
 
-                {/* Delete button - show on hover when image exists */}
+                {/* Delete button - show when image exists */}
                 {imageStatus.hasOriginal && !isDeletingImage && (
                   <Button 
                     variant="light"
@@ -863,7 +890,7 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
                       position: 'absolute',
                       top: 8,
                       right: 8,
-                      opacity: 0,
+                      opacity: 0.7,
                       transition: 'opacity 0.2s ease',
                       '&:hover': {
                         opacity: 1
@@ -894,42 +921,42 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
                 )}
               </Box>
 
-              {/* Fields below image */}
+              {/* Rest of the left column */}
+              <Select
+                label="Base Size"
+                value={formData?.base_size_id?.toString()}
+                onChange={(value) => setFormData(prev => prev ? { ...prev, base_size_id: parseInt(value || '3') } : null)}
+                data={baseSizes?.map((option: BaseSize) => ({
+                  value: option.id.toString(),
+                  label: option.base_size_name.charAt(0).toUpperCase() + option.base_size_name.slice(1)
+                })) || []}
+                disabled={isLoadingBaseSizes}
+              />
+              <Select
+                label="Painted By"
+                value={formData?.painted_by_id?.toString()}
+                onChange={(value) => setFormData(prev => prev ? { ...prev, painted_by_id: parseInt(value || '1') } : null)}
+                data={paintedByOptions?.map((option: PaintedBy) => ({
+                  value: option.id.toString(),
+                  label: option.painted_by_name.charAt(0).toUpperCase() + option.painted_by_name.slice(1)
+                })) || []}
+                disabled={isLoadingPaintedBy}
+              />
               <TextInput
                 label="Location"
-                value={formData.location || ''}
+                value={formData?.location || ''}
                 onChange={(e) => setFormData(prev => prev ? { ...prev, location: e.target.value } : null)}
                 required
               />
-              <Select
-                label="Base Size"
-                data={baseSizes?.map(size => ({
-                  value: size.id.toString(),
-                  label: size.base_size_name.charAt(0).toUpperCase() + size.base_size_name.slice(1)
-                })) || []}
-                value={formData.base_size_id?.toString()}
-                onChange={(value) => setFormData(prev => prev ? { ...prev, base_size_id: parseInt(value || '3') } : null)}
-                required
-              />
-              <Stack gap="xs">
-                <Text size="sm" fw={500}>Painted By</Text>
-                <SegmentedControl
-                  fullWidth
-                  value={formData.painted_by_id?.toString()}
-                  onChange={(value) => setFormData(prev => prev ? { ...prev, painted_by_id: parseInt(value) } : null)}
-                  data={paintedByOptions?.map(option => ({
-                    value: option.id.toString(),
-                    label: option.painted_by_name.charAt(0).toUpperCase() + option.painted_by_name.slice(1)
-                  })) || []}
-                />
-              </Stack>
             </Stack>
+          </Grid.Col>
 
-            {/* Right Column - 75% width */}
-            <Stack w="75%">
+          {/* Right Column - 70% width */}
+          <Grid.Col span={8}>
+            <Stack>
               <TextInput
                 label="Name"
-                value={formData.name || ''}
+                value={formData?.name || ''}
                 onChange={(e) => setFormData(prev => prev ? { ...prev, name: e.target.value } : null)}
                 required
               />
@@ -940,38 +967,60 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
                 onChange={(value) => setFormData(prev => prev ? { 
                   ...prev, 
                   product_set_id: value ? parseInt(value) : null,
-                  // Clear these as they'll be updated on refresh
                   product_set_name: null,
                   product_line_name: null,
                   company_name: null
                 } : null)}
-                data={productSetOptions ?? []}
+                data={productSets ?? []}
                 disabled={isLoadingProductSets}
                 searchable
                 clearable
               />
               <NumberInput
                 label="Quantity"
-                value={formData.quantity || 1}
+                value={formData?.quantity || 1}
                 onChange={(value) => setFormData(prev => prev ? { ...prev, quantity: typeof value === 'number' ? value : 1 } : null)}
                 min={0}
                 required
               />
+              <TagsInput
+                label="Tags"
+                description="Enter existing tags or create new ones"
+                value={formData?.tags?.map(t => t.name) || []}
+                onChange={(values) => {
+                  setFormData(prev => {
+                    if (!prev) return null;
+                    return {
+                      ...prev,
+                      tags: values.map(name => {
+                        // Try to find existing tag
+                        const existingTag = existingTags?.find(t => t.name === name);
+                        return existingTag || { id: -1, name };
+                      })
+                    };
+                  });
+                }}
+                data={existingTags?.map(t => t.name) || []}
+                splitChars={[',', ' ', 'Enter']}
+                maxTags={50}
+                clearable
+                style={{ flex: 1 }}
+              />
               <Textarea
                 label="Description"
-                value={formData.description || ''}
+                value={formData?.description || ''}
                 onChange={(e) => setFormData(prev => prev ? { ...prev, description: e.target.value } : null)}
                 minRows={3}
                 placeholder="Enter miniature description..."
               />
             </Stack>
-          </Group>
+          </Grid.Col>
+        </Grid>
 
-          <Group justify="flex-end" mt="xl">
-            <Button variant="default" onClick={onClose}>Cancel</Button>
-            <Button type="submit" color="green">Save Changes</Button>
-          </Group>
-        </Stack>
+        <Group justify="flex-end" mt="xl">
+          <Button variant="light" onClick={onClose}>Cancel</Button>
+          <Button type="submit" color="blue">Save Changes</Button>
+        </Group>
       </form>
     </AdminModal>
   );
