@@ -46,8 +46,7 @@ button:focusWithin,
 }
 
 /* Data attributes */
-.mantine-NavLink-root[dataSelected="true"],
-.mantine-NavLink-root[data-selected="true"] {
+.mantine-NavLink-root[dataSelected="true"] {
   background-color: transparent !important;
 }
 

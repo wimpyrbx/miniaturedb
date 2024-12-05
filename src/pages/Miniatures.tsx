@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { useState } from 'react';
-import { Stack, Title, Text, Group, Card, Button, TextInput, MultiSelect, Select, Textarea, NumberInput, useMantineColorScheme, Radio, TagsInput, Badge, Center, Loader, SegmentedControl, Pagination, Box, Grid, Paper, UnstyledButton, ActionIcon, Table, MantineTheme, Combobox, useCombobox, InputBase } from '@mantine/core';
+import { Stack, Title, Text, Group, Card, Button, TextInput, MultiSelect, Select, Textarea, NumberInput, useMantineColorScheme, Radio, TagsInput, Badge, Center, Loader, SegmentedControl, Pagination, Box, Grid, Paper, UnstyledButton, ActionIcon, Table, MantineTheme, Combobox, useCombobox, InputBase, ScrollArea } from '@mantine/core';
 import { DataTable } from '../components/ui/table/DataTable';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TableActions } from '../components/ui/tableactions/TableActions';
@@ -9,6 +9,7 @@ import { AdminModal } from '../components/AdminModal';
 import { getMiniatureImagePath, checkMiniatureImageStatus, uploadMiniatureImage, deleteMiniatureImage, ImageStatus } from '../utils/imageUtils';
 import { modals } from '@mantine/modals';
 import { getProductSets } from '../api/productinfo/sets/get';
+import { badgeStyles, typeStyles } from '../utils/theme';
 
 interface Category {
   id: number;
@@ -18,10 +19,11 @@ interface Category {
 interface MiniType {
   id: number;
   name: string;
-  categories: number[];
-  category_names: string[];
-  mini_ids: number[];
-  mini_count: number;
+  proxy_type: boolean;
+  categories?: number[];
+  category_names?: string[];
+  mini_ids?: number[];
+  mini_count?: number;
 }
 
 interface Tag {
@@ -256,148 +258,120 @@ const CardsView = ({ minis, onEdit, currentPage, onPageChange }: {
   currentPage: number,
   onPageChange: (page: number) => void
 }) => {
-  const paginatedMinis = minis.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
-
   return (
-    <div style={{ 
-      display: 'grid', 
-      gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
-      gap: 'var(--mantine-spacing-xs)'
-    }}>
-      {paginatedMinis.map(mini => (
-        <Card 
-          key={mini.id} 
-          shadow="sm" 
-          padding={0}
-          withBorder
-          style={{
-            transition: 'all 200ms ease',
-          }}
-          component="div"
-          onMouseEnter={(e) => {
-            const target = e.currentTarget as HTMLElement;
-            target.style.transform = 'scale(1.02)';
-            target.style.zIndex = '100';
-            target.style.boxShadow = '0 0 20px 0 var(--mantine-color-primary-light)';
-          }}
-          onMouseLeave={(e) => {
-            const target = e.currentTarget as HTMLElement;
-            target.style.transform = 'none';
-            target.style.zIndex = '';
-            target.style.boxShadow = 'var(--mantine-shadow-sm)';
-          }}
-        >
-          <Card.Section style={{ position: 'relative' }}>
-            <Button 
-              variant="filled" 
-              size="sm"
-              color="dark"
-              onClick={() => onEdit(mini)}
-              style={{
-                position: 'absolute',
-                top: 16,
-                right: 16,
-                zIndex: 2,
-                padding: '4px 8px',
-                minWidth: 0,
-                backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                backdropFilter: 'blur(4px)',
-                transition: 'all 200ms ease',
-                '&:hover': {
-                  backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                  transform: 'scale(1.1)'
-                }
-              }}
-            >
-              <IconEdit size={16} />
-            </Button>
-            <div style={{ 
-              width: '100%',
-              aspectRatio: '1',
-              backgroundColor: 'var(--mantine-color-dark-4)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              position: 'relative'
-            }}>
-              {mini.imageStatus?.hasOriginal ? (
-                <img 
-                  src={getMiniatureImagePath(mini.id, 'original')}
-                  alt={mini.name}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain',
-                    padding: '8px'
-                  }}
-                />
-              ) : (
-                <IconPhoto size={48} style={{ opacity: 0.5 }} />
-              )}
-              <div style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                padding: '8px',
-                background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
-                zIndex: 1
-              }}>
-                <PillsList 
-                  items={mini.types.filter(type => !type.proxy_type)} 
-                  color="teal"
-                />
-              </div>
-            </div>
-          </Card.Section>
-          <Stack gap="xs" p="sm">
-            <Group justify="space-between" align="flex-start">
-              <Text fw={500} size="lg" style={{ lineHeight: 1.1 }}>{mini.name}</Text>
-              <Group gap={4}>
-                <Text size="xs" c="dimmed" style={{ 
+    <Grid>
+      {minis.map(mini => (
+        <Grid.Col key={mini.id} span={4}>
+          <Card shadow="sm" padding={0}>
+            <Card.Section style={{ position: 'relative' }}>
+              <Button 
+                variant="filled" 
+                size="sm"
+                color="dark"
+                onClick={() => onEdit(mini)}
+                style={{
+                  position: 'absolute',
+                  top: 16,
+                  right: 16,
+                  zIndex: 2,
                   padding: '4px 8px',
-                  border: '1px solid var(--mantine-color-dark-4)',
-                  borderRadius: 'var(--mantine-radius-sm)',
-                  backgroundColor: 'var(--mantine-color-dark-7)',
-                  whiteSpace: 'nowrap',
-                  color: 'var(--mantine-color-primary-4)'
+                  minWidth: 0,
+                  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                  backdropFilter: 'blur(4px)',
+                  transition: 'all 200ms ease',
+                  '&:hover': {
+                    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                    transform: 'scale(1.1)'
+                  }
+                }}
+              >
+                <IconEdit size={16} />
+              </Button>
+              <div style={{ 
+                width: '100%',
+                aspectRatio: '1',
+                backgroundColor: 'var(--mantine-color-dark-4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative'
+              }}>
+                {mini.imageStatus?.hasOriginal ? (
+                  <img 
+                    src={getMiniatureImagePath(mini.id, 'original')}
+                    alt={mini.name}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain',
+                      padding: '8px'
+                    }}
+                  />
+                ) : (
+                  <IconPhoto size={48} style={{ opacity: 0.5 }} />
+                )}
+                <div style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  padding: '8px',
+                  background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
+                  zIndex: 1
                 }}>
-                  {mini.base_size_name || 'No Base'}
-                </Text>
+                  <PillsList 
+                    items={mini.types?.filter(type => !type.proxy_type) || []} 
+                    color="teal"
+                  />
+                </div>
+              </div>
+            </Card.Section>
+            <Stack gap="xs" p="sm">
+              <Group justify="space-between" align="flex-start">
+                <Text fw={500} size="lg" style={{ lineHeight: 1.1 }}>{mini.name}</Text>
+                <Group gap={4}>
+                  <Text size="xs" c="dimmed" style={{ 
+                    padding: '4px 8px',
+                    border: '1px solid var(--mantine-color-dark-4)',
+                    borderRadius: 'var(--mantine-radius-sm)',
+                    backgroundColor: 'var(--mantine-color-dark-7)',
+                    whiteSpace: 'nowrap',
+                    color: 'var(--mantine-color-primary-4)'
+                  }}>
+                    {mini.base_size_name || 'No Base'}
+                  </Text>
+                </Group>
               </Group>
-            </Group>
 
-            {mini.types.some(type => type.proxy_type) && (
-              <PillsList 
-                items={mini.types.filter(type => type.proxy_type)} 
-                color="blue"
-              />
-            )}
-
-            {mini.category_names.length > 0 && (
-              <PillsList 
-                items={mini.category_names} 
-                color="violet" 
-              />
-            )}
-
-            <Group gap="xs" mt="xs">
-              <Text size="xs" c="var(--mantine-color-primary)">
-                <Text size="xs" span inherit c="var(--mantine-color-primary-3)" fw={500}>Location:</Text> {mini.location}
-              </Text>
-              {mini.painted_by_name && (
-                <Text size="xs" c="var(--mantine-color-primary)">
-                  <Text size="xs" span inherit c="var(--mantine-color-primary-3)" fw={500}>Painted by:</Text> {mini.painted_by_name}
-                </Text>
+              {mini.types?.some(type => type.proxy_type) && (
+                <PillsList 
+                  items={mini.types?.filter(type => type.proxy_type) || []} 
+                  color="blue"
+                />
               )}
-            </Group>
-          </Stack>
-        </Card>
+
+              {mini.category_names?.length > 0 && (
+                <PillsList 
+                  items={mini.category_names} 
+                  color="violet" 
+                />
+              )}
+
+              <Group gap="xs" mt="xs">
+                <Text size="xs" c="var(--mantine-color-primary)">
+                  <Text size="xs" span inherit c="var(--mantine-color-primary-3)" fw={500}>Location:</Text> {mini.location}
+                </Text>
+                {mini.painted_by_name && (
+                  <Text size="xs" c="var(--mantine-color-primary)">
+                    <Text size="xs" span inherit c="var(--mantine-color-primary-3)" fw={500}>Painted by:</Text> {mini.painted_by_name}
+                  </Text>
+                )}
+              </Group>
+            </Stack>
+          </Card>
+        </Grid.Col>
       ))}
-    </div>
+    </Grid>
   );
 };
 
@@ -605,13 +579,7 @@ const BannerView = ({ minis, onEdit, currentPage, onPageChange }: {
                   <Text size="xs" style={{ fontStyle: 'italic', marginBottom: 4 }} lineClamp={1}>
                     {[mini.company_name, mini.product_line_name, mini.product_set_name]
                       .filter(Boolean)
-                      .map((text, index, arr) => (
-                        <React.Fragment key={index}>
-                          <span style={{ color: 'var(--mantine-color-primary-6)', opacity: 0.8 }}>{text}</span>
-                          {index < arr.length - 1 && ' » '}
-                        </React.Fragment>
-                      ))
-                    }
+                      .join(' » ')}
                   </Text>
                 </div>
               </div>
@@ -639,6 +607,187 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isDeletingImage, setIsDeletingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Validate name field
+  const validateName = (name: string): string | null => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return 'Name is required';
+    if (trimmedName.length < 2) return 'Name must be at least 2 characters';
+    if (trimmedName.length > 100) return 'Name must be less than 100 characters';
+    return null;
+  };
+
+  // Validate location field
+  const validateLocation = (location: string): string | null => {
+    const trimmedLocation = location.trim();
+    if (!trimmedLocation) return 'Location is required';
+    if (trimmedLocation.length > 100) return 'Location must be less than 100 characters';
+    return null;
+  };
+
+  // Handle name change with validation
+  const handleNameChange = (value: string) => {
+    setFormData(prev => prev ? { ...prev, name: value } : null);
+    if (nameError) {
+      setNameError(validateName(value));
+    }
+  };
+
+  // Handle location change with validation
+  const handleLocationChange = (value: string) => {
+    setFormData(prev => prev ? { ...prev, location: value } : null);
+    if (locationError) {
+      setLocationError(validateLocation(value));
+    }
+  };
+
+  // Validate all form fields
+  const validateForm = (): boolean => {
+    if (!formData) return false;
+
+    const nameValidationError = validateName(formData.name);
+    const locationValidationError = validateLocation(formData.location);
+
+    setNameError(nameValidationError);
+    setLocationError(locationValidationError);
+
+    return !nameValidationError && !locationValidationError;
+  };
+
+  // Validate before submit
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData) return;
+
+    setIsSubmitting(true);
+
+    try {
+      // First update basic miniature data
+      const basicData = {
+        name: formData.name.trim(),
+        location: formData.location.trim(),
+        description: formData.description,
+        quantity: formData.quantity,
+        painted_by_id: formData.painted_by_id,
+        base_size_id: formData.base_size_id,
+        product_set_id: formData.product_set_id
+      };
+
+      console.log('Updating basic data:', basicData);
+      const response = await fetch(`/api/minis/${formData.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(basicData),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Basic data update failed:', errorText);
+        throw new Error('Failed to update miniature');
+      }
+
+      const updatedBasicData = await response.json();
+      console.log('Basic data updated:', updatedBasicData);
+
+      // Update types
+      const typeUpdateData = {
+        types: formData.types.map(type => ({
+          id: type.id,
+          proxy_type: type.proxy_type ? 1 : 0
+        }))
+      };
+      console.log('Updating types:', typeUpdateData);
+
+      const typesResponse = await fetch(`/api/minis/${formData.id}/types`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(typeUpdateData),
+      });
+
+      if (!typesResponse.ok) {
+        const errorText = await typesResponse.text();
+        console.error('Types update failed:', errorText);
+        throw new Error('Failed to update types');
+      }
+
+      const typesData = await typesResponse.json();
+      console.log('Types data received:', typesData);
+      const updatedTypes = JSON.parse(typesData.type_info || '[]').filter((t: any) => t.id !== null);
+      console.log('Parsed types:', updatedTypes);
+
+      // Update tags if they've changed
+      const currentTags = miniature?.tags || [];
+      const newTags = formData.tags || [];
+      
+      if (JSON.stringify(currentTags) !== JSON.stringify(newTags)) {
+        console.log('Updating tags:', newTags);
+        await updateTagsMutation.mutateAsync({
+          miniId: formData.id,
+          tags: newTags
+        });
+      }
+
+      // Handle image upload if needed
+      let newImageStatus = imageStatus;
+      if (imageFile) {
+        console.log('Uploading image');
+        await uploadMiniatureImage(formData.id, imageFile);
+        newImageStatus = { hasOriginal: true, hasThumb: true };
+      }
+
+      // Fetch the complete updated miniature to ensure we have all data
+      const getMiniResponse = await fetch(`/api/miniatures`);
+      if (!getMiniResponse.ok) {
+        throw new Error('Failed to fetch updated miniature data');
+      }
+      const allMinis = await getMiniResponse.json();
+      const completeUpdatedMini = {
+        ...allMinis.find((mini: Mini) => mini.id === formData.id),
+        imageStatus: newImageStatus
+      };
+      console.log('Complete updated mini:', completeUpdatedMini);
+
+      // Update the cache with the new data
+      queryClient.setQueryData(['minis'], (oldData: any) => {
+        if (!oldData) return oldData;
+
+        // If data is a direct array (which it should be based on the query)
+        if (Array.isArray(oldData)) {
+          console.log('Updating minis array in cache');
+          return oldData.map((item: Mini) =>
+            item.id === completeUpdatedMini.id ? {
+              ...completeUpdatedMini,
+              imageStatus: newImageStatus
+            } : item
+          );
+        }
+
+        return oldData;
+      });
+
+      onClose();
+    } catch (error) {
+      console.error('Error updating miniature:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Remove the effect that was invalidating on close since we're updating the cache directly
+  useEffect(() => {
+    if (opened) {
+      setNameError(null);
+      setLocationError(null);
+      setIsSubmitting(false);
+    }
+  }, [opened]);
 
   // Query for base sizes
   const { data: baseSizes, isLoading: isLoadingBaseSizes } = useQuery({
@@ -742,9 +891,9 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
     return availableTypes
       .filter((type: MiniType) => 
         type.name.toLowerCase().includes(typeSearchValue.toLowerCase()) &&
-        !formData?.types?.some(t => t.id === type.id)
+        !formData?.types?.some((t: MiniType) => t.id === type.id)
       )
-      .slice(0, 5);
+      .sort((a: MiniType, b: MiniType) => a.name.localeCompare(b.name));
   }, [availableTypes, typeSearchValue, formData?.types]);
 
   // Handle adding a type
@@ -780,6 +929,10 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
       // If we removed the main type and there are other types, set the first one as main
       if (wasMain && remainingTypes.length > 0) {
         remainingTypes[0].proxy_type = false;
+        // Ensure all other types are proxy
+        for (let i = 1; i < remainingTypes.length; i++) {
+          remainingTypes[i].proxy_type = true;
+        }
       }
 
       return {
@@ -873,52 +1026,19 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData) return;
-
-    try {
-      // Update basic miniature data
-      const response = await fetch(`/api/minis/${formData.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update miniature');
-      }
-
-      // Update tags if they've changed
-      const currentTags = miniature?.tags || [];
-      const newTags = formData.tags || [];
-      
-      if (JSON.stringify(currentTags) !== JSON.stringify(newTags)) {
-        await updateTagsMutation.mutateAsync({
-          miniId: formData.id,
-          tags: newTags
-        });
-      }
-
-      // Handle image upload if needed
-      if (imageFile) {
-        await uploadMiniatureImage(formData.id, imageFile);
-      }
-
+  // Add an effect to refetch data when modal closes
+  useEffect(() => {
+    if (!opened) {
       queryClient.invalidateQueries({ queryKey: ['miniatures'] });
-      onClose();
-    } catch (error) {
-      console.error('Error updating miniature:', error);
     }
-  };
+  }, [opened, queryClient]);
 
   return (
     <AdminModal
       opened={opened}
       onClose={onClose}
-      title={miniature ? 'Edit Miniature' : 'Add Miniature'}
+      title={miniature ? `Edit Miniature: ${miniature.name}` : 'Add Miniature'}
+      rightHeaderText={miniature ? `ID: ${miniature.id}` : ''}
       size="70%"
     >
       <form onSubmit={handleSubmit}>
@@ -1059,8 +1179,10 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
               <TextInput
                 label="Location"
                 value={formData?.location || ''}
-                onChange={(e) => setFormData(prev => prev ? { ...prev, location: e.target.value } : null)}
+                onChange={(e) => handleLocationChange(e.target.value)}
+                error={locationError}
                 required
+                placeholder="Enter storage location"
               />
             </Stack>
           </Grid.Col>
@@ -1071,8 +1193,11 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
               <TextInput
                 label="Name"
                 value={formData?.name || ''}
-                onChange={(e) => setFormData(prev => prev ? { ...prev, name: e.target.value } : null)}
+                onChange={(e) => handleNameChange(e.target.value)}
+                error={nameError}
                 required
+                placeholder="Enter miniature name"
+                data-autofocus
               />
               <Select
                 label="Product Set"
@@ -1107,14 +1232,13 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
                     return {
                       ...prev,
                       tags: values.map(name => {
-                        // Try to find existing tag
-                        const existingTag = existingTags?.find(t => t.name === name);
+                        const existingTag = existingTags?.find((t: Tag) => t.name === name);
                         return existingTag || { id: -1, name };
                       })
                     };
                   });
                 }}
-                data={existingTags?.map(t => t.name) || []}
+                data={existingTags?.map((t: Tag) => t.name) || []}
                 splitChars={[',', ' ', 'Enter']}
                 maxTags={50}
                 clearable
@@ -1165,16 +1289,25 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
                     </Combobox.Target>
 
                     <Combobox.Dropdown hidden={filteredTypes.length === 0}>
-                      <Combobox.Options>
-                        {filteredTypes.map((type: MiniType) => (
-                          <Combobox.Option
-                            key={type.id}
-                            value={type.id.toString()}
-                          >
-                            {type.name}
-                          </Combobox.Option>
-                        ))}
-                      </Combobox.Options>
+                      <ScrollArea.Autosize mah={400} type="scroll">
+                        <Combobox.Options>
+                          {filteredTypes.map((type: MiniType) => (
+                            <Combobox.Option
+                              key={type.id}
+                              value={type.id.toString()}
+                              style={{
+                                color: 'var(--mantine-color-primary-text)',
+                                '&[dataSelected]': {
+                                  backgroundColor: 'var(--mantine-color-primary-light)',
+                                  color: 'var(--mantine-color-primary-text)'
+                                }
+                              }}
+                            >
+                              {type.name}
+                            </Combobox.Option>
+                          ))}
+                        </Combobox.Options>
+                      </ScrollArea.Autosize>
                     </Combobox.Dropdown>
                   </Combobox>
 
@@ -1202,34 +1335,63 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
                           >
                             <Table.Tr>
                               <Table.Th style={{ color: 'var(--mantine-color-primary-text)' }}>Type</Table.Th>
-                              <Table.Th style={{ width: 100, textAlign: 'center', color: 'var(--mantine-color-primary-text)' }}>Main</Table.Th>
+                              <Table.Th style={{ width: 70, textAlign: 'center', color: 'var(--mantine-color-primary-text)' }}>Main</Table.Th>
                               <Table.Th style={{ width: 70, textAlign: 'center', color: 'var(--mantine-color-primary-text)' }}>Actions</Table.Th>
                             </Table.Tr>
                           </Table.Thead>
                           <Table.Tbody>
                             {formData.types.map((type, index) => (
-                              <Table.Tr key={type.id}>
+                              <Table.Tr 
+                                key={type.id}
+                                onClick={() => handleSetMainType(type.id)}
+                                style={{ 
+                                  cursor: 'pointer',
+                                  '&:hover': {
+                                    backgroundColor: 'var(--mantine-color-default-hover)'
+                                  }
+                                }}
+                              >
                                 <Table.Td
                                   style={{
                                     borderBottom: index === formData.types.length - 1 ? 'none' : '1px solid var(--mantine-color-default-border)'
                                   }}
                                 >
-                                  {type.name}
+                                  <Stack gap={2}>
+                                    <Text c="primary">{type.name}</Text>
+                                    {type.category_names && type.category_names.length > 0 && (
+                                      <Group gap={0} wrap="wrap">
+                                        {type.category_names.map((category, idx) => (
+                                          <Badge 
+                                            key={idx} 
+                                            size="xs" 
+                                            variant="light"
+                                            color="primary"
+                                          >
+                                            {category}
+                                          </Badge>
+                                        ))}
+                                      </Group>
+                                    )}
+                                  </Stack>
                                 </Table.Td>
                                 <Table.Td 
                                   style={{ 
                                     textAlign: 'center',
                                     borderBottom: index === formData.types.length - 1 ? 'none' : '1px solid var(--mantine-color-default-border)'
                                   }}
+                                  onClick={(e) => e.stopPropagation()}
                                 >
                                   <ActionIcon
-                                    variant={!type.proxy_type ? "filled" : "subtle"}
-                                    color={!type.proxy_type ? "green" : "gray"}
-                                    onClick={() => handleSetMainType(type.id)}
+                                    variant={!type.proxy_type ? typeStyles.main.variant : typeStyles.proxy.variant}
+                                    color={!type.proxy_type ? typeStyles.main.color : typeStyles.proxy.color}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleSetMainType(type.id);
+                                    }}
                                     size="sm"
                                     aria-label="Set as main type"
                                     style={{
-                                      opacity: !type.proxy_type ? 1 : 0.25
+                                      opacity: !type.proxy_type ? typeStyles.main.opacity : typeStyles.proxy.opacity
                                     }}
                                   >
                                     <IconCheck 
@@ -1245,11 +1407,15 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
                                     textAlign: 'center',
                                     borderBottom: index === formData.types.length - 1 ? 'none' : '1px solid var(--mantine-color-default-border)'
                                   }}
+                                  onClick={(e) => e.stopPropagation()}
                                 >
                                   <ActionIcon
                                     color="red"
                                     variant="subtle"
-                                    onClick={() => handleRemoveType(type.id)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRemoveType(type.id);
+                                    }}
                                     size="sm"
                                   >
                                     <IconX size={16} />
@@ -1263,16 +1429,15 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
 
                       {/* Categories Section */}
                       {typeCategories && typeCategories.length > 0 && (
-                        <Group gap="xs" mt="xs">
-                          <Text size="sm" c="dimmed">Categories:</Text>
+                        <Group gap="xs" mt="2">
                           {typeCategories
                             .sort((a, b) => a.name.localeCompare(b.name))
                             .map(category => (
                               <Badge
                                 key={category.id}
                                 size="sm"
-                                variant="light"
-                                color="gray"
+                                variant={badgeStyles.category.variant}
+                                color={badgeStyles.category.color}
                               >
                                 {category.name}
                               </Badge>
@@ -1289,7 +1454,14 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
 
         <Group justify="flex-end" mt="xl">
           <Button variant="light" onClick={onClose}>Cancel</Button>
-          <Button type="submit" color="blue">Save Changes</Button>
+          <Button 
+            type="submit" 
+            color="green" 
+            loading={isSubmitting}
+            disabled={isSubmitting}
+          >
+            Save Changes
+          </Button>
         </Group>
       </form>
     </AdminModal>
