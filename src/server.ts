@@ -14,8 +14,24 @@ import sharp from 'sharp';
 
 const app = express();
 const port = process.env.PORT || 3001;
-const db = new Database('auth.db');
-const minisDb = new Database('minis.db');
+
+// Initialize databases lazily
+let db: Database.Database | null = null;
+let minisDb: Database.Database | null = null;
+
+const getAuthDb = () => {
+  if (!db) {
+    db = new Database('auth.db');
+  }
+  return db;
+};
+
+const getMinisDb = () => {
+  if (!minisDb) {
+    minisDb = new Database('minis.db');
+  }
+  return minisDb;
+};
 
 app.use(cors({
   origin: 'http://localhost:5173', // Vite's default port
@@ -35,10 +51,10 @@ app.use(session({
 }));
 
 // Make databases available to request handlers
-app.locals.db = db;
-app.locals.minisDb = minisDb;
+app.locals.getDb = getAuthDb;
+app.locals.getMinisDb = getMinisDb;
 
-// Authentication middleware
+// Authentication middleware - only initialize db when needed
 const requireAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (!req.session.user) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -47,22 +63,25 @@ const requireAuth = (req: express.Request, res: express.Response, next: express.
   next();
 };
 
-// Login route
+// Login route - optimized to minimize db operations
 app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body;
   
-  console.log('Login attempt:', { username });
-  
-  if (verifyCredentials(username, password)) {
-    req.session.user = { username };
-    console.log('Login successful:', {
-      sessionID: req.sessionID,
-      user: req.session.user
-    });
-    res.json({ success: true, username });
-  } else {
-    console.log('Login failed: Invalid credentials');
-    res.status(401).json({ error: 'Invalid credentials' });
+  if (!username || !password) {
+    res.status(400).json({ error: 'Username and password are required' });
+    return;
+  }
+
+  try {
+    if (verifyCredentials(username, password)) {
+      req.session.user = { username };
+      res.json({ success: true, username });
+    } else {
+      res.status(401).json({ error: 'Invalid credentials' });
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -101,7 +120,7 @@ app.get('/api/health', requireAuth, (_req, res) => {
 // Companies
 app.get('/api/productinfo/companies', requireAuth, (_req, res) => {
   try {
-    const companies = minisDb.prepare('SELECT * FROM production_companies ORDER BY name').all();
+    const companies = getMinisDb().prepare('SELECT * FROM production_companies ORDER BY name').all();
     res.json(companies);
   } catch (error) {
     console.error('Error fetching companies:', error);
@@ -112,7 +131,7 @@ app.get('/api/productinfo/companies', requireAuth, (_req, res) => {
 app.post('/api/productinfo/companies', requireAuth, (req, res) => {
   try {
     const { name } = req.body;
-    const result = minisDb.prepare(
+    const result = getMinisDb().prepare(
       'INSERT INTO production_companies (name) VALUES (?) RETURNING *'
     ).get(name);
     res.json(result);
@@ -126,7 +145,7 @@ app.put('/api/productinfo/companies/:id', requireAuth, (req, res) => {
   try {
     const { name } = req.body;
     const { id } = req.params;
-    const result = minisDb.prepare(
+    const result = getMinisDb().prepare(
       'UPDATE production_companies SET name = ? WHERE id = ? RETURNING *'
     ).get(name, id);
     if (result) {
@@ -143,7 +162,7 @@ app.put('/api/productinfo/companies/:id', requireAuth, (req, res) => {
 app.delete('/api/productinfo/companies/:id', requireAuth, (req, res) => {
   try {
     const { id } = req.params;
-    const result = minisDb.prepare('DELETE FROM production_companies WHERE id = ?').run(id);
+    const result = getMinisDb().prepare('DELETE FROM production_companies WHERE id = ?').run(id);
     if (result.changes > 0) {
       res.json({ success: true });
     } else {
@@ -158,7 +177,7 @@ app.delete('/api/productinfo/companies/:id', requireAuth, (req, res) => {
 // Product Lines
 app.get('/api/productinfo/companies/:id/lines', requireAuth, (req, res) => {
   try {
-    const lines = minisDb.prepare(
+    const lines = getMinisDb().prepare(
       'SELECT * FROM product_lines WHERE company_id = ? ORDER BY name'
     ).all(req.params.id);
     res.json(lines);
@@ -171,7 +190,7 @@ app.get('/api/productinfo/companies/:id/lines', requireAuth, (req, res) => {
 app.post('/api/productinfo/lines', requireAuth, (req, res) => {
   try {
     const { name, company_id } = req.body;
-    const result = minisDb.prepare(
+    const result = getMinisDb().prepare(
       'INSERT INTO product_lines (name, company_id) VALUES (?, ?) RETURNING *'
     ).get(name, company_id);
     res.json(result);
@@ -185,7 +204,7 @@ app.put('/api/productinfo/lines/:id', requireAuth, (req, res) => {
   try {
     const { name } = req.body;
     const { id } = req.params;
-    const result = minisDb.prepare(
+    const result = getMinisDb().prepare(
       'UPDATE product_lines SET name = ? WHERE id = ? RETURNING *'
     ).get(name, id);
     if (result) {
@@ -202,7 +221,7 @@ app.put('/api/productinfo/lines/:id', requireAuth, (req, res) => {
 app.delete('/api/productinfo/lines/:id', requireAuth, (req, res) => {
   try {
     const { id } = req.params;
-    const result = minisDb.prepare('DELETE FROM product_lines WHERE id = ?').run(id);
+    const result = getMinisDb().prepare('DELETE FROM product_lines WHERE id = ?').run(id);
     if (result.changes > 0) {
       res.json({ success: true });
     } else {
@@ -217,7 +236,7 @@ app.delete('/api/productinfo/lines/:id', requireAuth, (req, res) => {
 // Product Sets
 app.get('/api/productinfo/sets', requireAuth, (req, res) => {
   try {
-    const sets = minisDb.prepare(`
+    const sets = getMinisDb().prepare(`
       SELECT 
         ps.*,
         pl.name as product_line_name,
@@ -237,7 +256,7 @@ app.get('/api/productinfo/sets', requireAuth, (req, res) => {
 
 app.get('/api/productinfo/lines/:id/sets', requireAuth, (req, res) => {
   try {
-    const sets = minisDb.prepare(`
+    const sets = getMinisDb().prepare(`
       SELECT 
         ps.*,
         (SELECT COUNT(*) FROM minis WHERE product_set_id = ps.id) as mini_count
@@ -255,7 +274,7 @@ app.get('/api/productinfo/lines/:id/sets', requireAuth, (req, res) => {
 app.post('/api/productinfo/sets', requireAuth, (req, res) => {
   try {
     const { name, product_line_id } = req.body;
-    const result = minisDb.prepare(
+    const result = getMinisDb().prepare(
       'INSERT INTO product_sets (name, product_line_id) VALUES (?, ?) RETURNING *'
     ).get(name, product_line_id);
     res.json(result);
@@ -269,7 +288,7 @@ app.put('/api/productinfo/sets/:id', requireAuth, (req, res) => {
   try {
     const { name } = req.body;
     const { id } = req.params;
-    const result = minisDb.prepare(
+    const result = getMinisDb().prepare(
       'UPDATE product_sets SET name = ? WHERE id = ? RETURNING *'
     ).get(name, id);
     if (result) {
@@ -286,7 +305,7 @@ app.put('/api/productinfo/sets/:id', requireAuth, (req, res) => {
 app.delete('/api/productinfo/sets/:id', requireAuth, (req, res) => {
   try {
     const { id } = req.params;
-    const result = minisDb.prepare('DELETE FROM product_sets WHERE id = ?').run(id);
+    const result = getMinisDb().prepare('DELETE FROM product_sets WHERE id = ?').run(id);
     if (result.changes > 0) {
       res.json({ success: true });
     } else {
@@ -317,7 +336,7 @@ app.get('/api/settings', requireAuth, async (
     }
 
     // Create user_preferences table if it doesn't exist
-    db.prepare(`
+    getAuthDb().prepare(`
       CREATE TABLE IF NOT EXISTS user_preferences (
         username TEXT NOT NULL,
         setting_key TEXT NOT NULL,
@@ -326,7 +345,7 @@ app.get('/api/settings', requireAuth, async (
       )
     `).run();
 
-    const settings = db.prepare(
+    const settings = getAuthDb().prepare(
       'SELECT setting_key, setting_value FROM user_preferences WHERE username = ?'
     ).all(username);
 
@@ -393,7 +412,7 @@ app.put('/api/settings', requireAuth, async (
     }
 
     // Create user_preferences table if it doesn't exist
-    db.prepare(`
+    getAuthDb().prepare(`
       CREATE TABLE IF NOT EXISTS user_preferences (
         username TEXT NOT NULL,
         setting_key TEXT NOT NULL,
@@ -403,7 +422,7 @@ app.put('/api/settings', requireAuth, async (
     `).run();
 
     // Update or insert the setting
-    db.prepare(`
+    getAuthDb().prepare(`
       INSERT INTO user_preferences (username, setting_key, setting_value) 
       VALUES (?, ?, ?) 
       ON CONFLICT(username, setting_key) 
@@ -421,7 +440,7 @@ app.put('/api/settings', requireAuth, async (
 // Types
 app.get('/api/classification/types', requireAuth, (_req, res) => {
   try {
-    const types = minisDb.prepare(`
+    const types = getMinisDb().prepare(`
       WITH type_categories AS (
         SELECT 
           mt.id as type_id,
@@ -469,7 +488,7 @@ app.get('/api/classification/types', requireAuth, (_req, res) => {
 app.post('/api/classification/types', requireAuth, (req, res) => {
   try {
     const { name } = req.body;
-    const result = minisDb.prepare(
+    const result = getMinisDb().prepare(
       'INSERT INTO mini_types (name) VALUES (?) RETURNING *'
     ).get(name);
     res.json(result);
@@ -483,7 +502,7 @@ app.put('/api/classification/types/:id', requireAuth, (req, res) => {
   try {
     const { name } = req.body;
     const { id } = req.params;
-    const result = minisDb.prepare(
+    const result = getMinisDb().prepare(
       'UPDATE mini_types SET name = ? WHERE id = ? RETURNING *'
     ).get(name, id);
     if (result) {
@@ -500,7 +519,7 @@ app.put('/api/classification/types/:id', requireAuth, (req, res) => {
 app.delete('/api/classification/types/:id', requireAuth, (req, res) => {
   try {
     const { id } = req.params;
-    minisDb.prepare('DELETE FROM mini_types WHERE id = ?').run(id);
+    getMinisDb().prepare('DELETE FROM mini_types WHERE id = ?').run(id);
     res.status(204).send();
   } catch (error) {
     console.error('Error deleting type:', error);
@@ -512,7 +531,7 @@ app.delete('/api/classification/types/:id', requireAuth, (req, res) => {
 app.get('/api/classification/types/:id/categories', requireAuth, (req, res) => {
   try {
     const { id } = req.params;
-    const categories = minisDb.prepare(`
+    const categories = getMinisDb().prepare(`
       SELECT mc.* 
       FROM mini_categories mc
       JOIN type_to_categories ttc ON mc.id = ttc.category_id
@@ -530,14 +549,14 @@ app.get('/api/classification/types/:id/categories', requireAuth, (req, res) => {
 app.post('/api/classification/categories', requireAuth, (req, res) => {
   try {
     const { name, type_id } = req.body;
-    const db = minisDb.transaction((name: string, typeId: number) => {
+    const db = getMinisDb().transaction((name: string, typeId: number) => {
       // First create the category
-      const category = minisDb.prepare(
+      const category = getMinisDb().prepare(
         'INSERT INTO mini_categories (name) VALUES (?) RETURNING *'
       ).get(name) as Category;
       
       // Then link it to the type
-      minisDb.prepare(
+      getMinisDb().prepare(
         'INSERT INTO type_to_categories (type_id, category_id) VALUES (?, ?)'
       ).run(typeId, category.id);
       
@@ -556,7 +575,7 @@ app.put('/api/classification/categories/:id', requireAuth, (req, res) => {
   try {
     const { name } = req.body;
     const { id } = req.params;
-    const result = minisDb.prepare(
+    const result = getMinisDb().prepare(
       'UPDATE mini_categories SET name = ? WHERE id = ? RETURNING *'
     ).get(name, id);
     if (result) {
@@ -573,11 +592,11 @@ app.put('/api/classification/categories/:id', requireAuth, (req, res) => {
 app.delete('/api/classification/categories/:id', requireAuth, (req, res) => {
   try {
     const { id } = req.params;
-    const deleteCategory = minisDb.transaction((categoryId) => {
+    const deleteCategory = getMinisDb().transaction((categoryId) => {
       // First delete all relationships
-      minisDb.prepare('DELETE FROM type_to_categories WHERE category_id = ?').run(categoryId);
+      getMinisDb().prepare('DELETE FROM type_to_categories WHERE category_id = ?').run(categoryId);
       // Then delete the category
-      minisDb.prepare('DELETE FROM mini_categories WHERE id = ?').run(categoryId);
+      getMinisDb().prepare('DELETE FROM mini_categories WHERE id = ?').run(categoryId);
     });
     
     deleteCategory(id);
@@ -591,7 +610,7 @@ app.delete('/api/classification/categories/:id', requireAuth, (req, res) => {
 // Get all type-category relationships
 app.get('/api/classification/type-categories', requireAuth, (_req, res) => {
   try {
-    const relationships = minisDb.prepare(`
+    const relationships = getMinisDb().prepare(`
       SELECT mc.*, ttc.type_id
       FROM mini_categories mc
       JOIN type_to_categories ttc ON mc.id = ttc.category_id
@@ -609,7 +628,7 @@ app.post('/api/classification/type-categories', requireAuth, (req, res) => {
     const { type_id, category_id } = req.body;
     
     // Check if relationship already exists
-    const existing = minisDb.prepare(
+    const existing = getMinisDb().prepare(
       'SELECT * FROM type_to_categories WHERE type_id = ? AND category_id = ?'
     ).get(type_id, category_id);
 
@@ -619,12 +638,12 @@ app.post('/api/classification/type-categories', requireAuth, (req, res) => {
     }
 
     // Create the relationship
-    minisDb.prepare(
+    getMinisDb().prepare(
       'INSERT INTO type_to_categories (type_id, category_id) VALUES (?, ?)'
     ).run(type_id, category_id);
 
     // Return the category details
-    const category = minisDb.prepare(
+    const category = getMinisDb().prepare(
       'SELECT * FROM mini_categories WHERE id = ?'
     ).get(category_id);
 
@@ -637,7 +656,7 @@ app.post('/api/classification/type-categories', requireAuth, (req, res) => {
 
 app.get('/api/classification/categories', requireAuth, (_req, res) => {
   try {
-    const categories = minisDb.prepare('SELECT * FROM mini_categories ORDER BY name').all();
+    const categories = getMinisDb().prepare('SELECT * FROM mini_categories ORDER BY name').all();
     res.json(categories);
   } catch (error) {
     console.error('Error fetching categories:', error);
@@ -651,12 +670,12 @@ app.put('/api/classification/types/:id/categories', requireAuth, (req, res) => {
     const { id: typeId } = req.params;
     const { categoryIds } = req.body;
 
-    const updateAssignments = minisDb.transaction((typeId: number, categoryIds: number[]) => {
+    const updateAssignments = getMinisDb().transaction((typeId: number, categoryIds: number[]) => {
       // First delete all existing assignments for this type
-      minisDb.prepare('DELETE FROM type_to_categories WHERE type_id = ?').run(typeId);
+      getMinisDb().prepare('DELETE FROM type_to_categories WHERE type_id = ?').run(typeId);
       
       // Then add the new assignments
-      const insertStmt = minisDb.prepare(
+      const insertStmt = getMinisDb().prepare(
         'INSERT INTO type_to_categories (type_id, category_id) VALUES (?, ?)'
       );
       
@@ -665,7 +684,7 @@ app.put('/api/classification/types/:id/categories', requireAuth, (req, res) => {
       }
       
       // Return the updated category list
-      return minisDb.prepare(`
+      return getMinisDb().prepare(`
         SELECT mc.* 
         FROM mini_categories mc
         JOIN type_to_categories ttc ON mc.id = ttc.category_id
@@ -718,7 +737,7 @@ interface Mini {
 // Tag endpoints
 app.get('/api/tags', (_req, res) => {
   try {
-    const tags = minisDb.prepare('SELECT * FROM tags ORDER BY name').all();
+    const tags = getMinisDb().prepare('SELECT * FROM tags ORDER BY name').all();
     res.json(tags);
   } catch (error) {
     console.error('Error fetching tags:', error);
@@ -729,7 +748,7 @@ app.get('/api/tags', (_req, res) => {
 app.post('/api/tags', requireAuth, (req, res) => {
   try {
     const { name } = req.body;
-    const result = minisDb.prepare(
+    const result = getMinisDb().prepare(
       'INSERT INTO tags (name) VALUES (?) RETURNING *'
     ).get(name);
     res.json(result);
@@ -743,7 +762,7 @@ app.post('/api/tags', requireAuth, (req, res) => {
 app.get('/api/minis', (_req, res) => {
   try {
     // First get all minis with their basic info
-    const minis = minisDb.prepare(`
+    const minis = getMinisDb().prepare(`
       SELECT 
         m.*,
         bs.base_size_name,
@@ -762,7 +781,7 @@ app.get('/api/minis', (_req, res) => {
 
     // For each mini, get its tags and types
     const minisWithDetails = minis.map(mini => {
-      const tags = minisDb.prepare(`
+      const tags = getMinisDb().prepare(`
         SELECT t.id, t.name
         FROM tags t
         JOIN mini_to_tags mtt ON t.id = mtt.tag_id
@@ -770,7 +789,7 @@ app.get('/api/minis', (_req, res) => {
         ORDER BY t.name
       `).all(mini.id) as Tag[];
 
-      const types = minisDb.prepare(`
+      const types = getMinisDb().prepare(`
         SELECT mt.id, mt.name, mtt.proxy_type
         FROM mini_types mt
         JOIN mini_to_types mtt ON mt.id = mtt.type_id
@@ -797,7 +816,7 @@ app.put('/api/minis/:id', requireAuth, (req, res) => {
     const { id } = req.params;
     const updates = req.body;
     
-    const result = minisDb.prepare(`
+    const result = getMinisDb().prepare(`
       UPDATE minis 
       SET name = ?, 
           description = ?, 
@@ -836,7 +855,7 @@ app.put('/api/minis/:id', requireAuth, (req, res) => {
 app.post('/api/tags', requireAuth, (req, res) => {
   try {
     const { name } = req.body;
-    const result = minisDb.prepare(
+    const result = getMinisDb().prepare(
       'INSERT INTO tags (name) VALUES (?) RETURNING *'
     ).get(name) as Tag;
     res.json(result);
@@ -852,9 +871,9 @@ app.put('/api/minis/:id/tags', requireAuth, (req, res) => {
     const { id } = req.params;
     const { tags } = req.body;  // Array of { id: number, name: string }
 
-    const updateTags = minisDb.transaction((miniId: number, tagData: Array<{ id: number, name: string }>) => {
+    const updateTags = getMinisDb().transaction((miniId: number, tagData: Array<{ id: number, name: string }>) => {
       // First create any new tags (those with id === -1)
-      const insertTagStmt = minisDb.prepare('INSERT INTO tags (name) VALUES (?) RETURNING *');
+      const insertTagStmt = getMinisDb().prepare('INSERT INTO tags (name) VALUES (?) RETURNING *');
       const newTags = tagData.filter(t => t.id === -1).map(t => {
         const result = insertTagStmt.get(t.name) as Tag;
         return result;
@@ -867,10 +886,10 @@ app.put('/api/minis/:id/tags', requireAuth, (req, res) => {
       ];
 
       // Delete all existing tag relationships
-      minisDb.prepare('DELETE FROM mini_to_tags WHERE mini_id = ?').run(miniId);
+      getMinisDb().prepare('DELETE FROM mini_to_tags WHERE mini_id = ?').run(miniId);
       
       // Add all tag relationships
-      const insertRelationStmt = minisDb.prepare(
+      const insertRelationStmt = getMinisDb().prepare(
         'INSERT INTO mini_to_tags (mini_id, tag_id) VALUES (?, ?)'
       );
       
@@ -879,7 +898,7 @@ app.put('/api/minis/:id/tags', requireAuth, (req, res) => {
       }
       
       // Return the updated mini with tags
-      return minisDb.prepare(`
+      return getMinisDb().prepare(`
         WITH mini_tags AS (
           SELECT 
             m.id as mini_id,
@@ -918,17 +937,17 @@ app.put('/api/minis/:id/type', requireAuth, (req, res) => {
     const { id } = req.params;
     const { typeId } = req.body;
 
-    const updateType = minisDb.transaction((miniId: number, newTypeId: number) => {
+    const updateType = getMinisDb().transaction((miniId: number, newTypeId: number) => {
       // First delete all existing types
-      minisDb.prepare('DELETE FROM mini_to_types WHERE mini_id = ?').run(miniId);
+      getMinisDb().prepare('DELETE FROM mini_to_types WHERE mini_id = ?').run(miniId);
       
       // Then add the new type
-      minisDb.prepare(
+      getMinisDb().prepare(
         'INSERT INTO mini_to_types (mini_id, type_id, proxy_type) VALUES (?, ?, 0)'
       ).run(miniId, newTypeId);
       
       // Return the updated mini with type
-      return minisDb.prepare(`
+      return getMinisDb().prepare(`
         SELECT 
           m.*,
           json_group_array(mt.id) as types
@@ -953,7 +972,7 @@ app.put('/api/minis/:id/type', requireAuth, (req, res) => {
 // Base sizes endpoints
 app.get('/api/base_sizes', (_req, res) => {
   try {
-    const baseSizes = minisDb.prepare('SELECT * FROM base_sizes ORDER BY id').all();
+    const baseSizes = getMinisDb().prepare('SELECT * FROM base_sizes ORDER BY id').all();
     res.json(baseSizes);
   } catch (error) {
     console.error('Error fetching base sizes:', error);
@@ -964,7 +983,7 @@ app.get('/api/base_sizes', (_req, res) => {
 // Painted by endpoints
 app.get('/api/painted_by', (_req, res) => {
   try {
-    const paintedBy = minisDb.prepare('SELECT * FROM painted_by ORDER BY id').all();
+    const paintedBy = getMinisDb().prepare('SELECT * FROM painted_by ORDER BY id').all();
     res.json(paintedBy);
   } catch (error) {
     console.error('Error fetching painted by options:', error);
@@ -1088,7 +1107,7 @@ app.delete('/api/minis/:id/image', requireAuth, (req, res) => {
 // Types endpoints
 app.get('/api/types', (_req, res) => {
   try {
-    const types = minisDb.prepare(`
+    const types = getMinisDb().prepare(`
       SELECT mt.*, 
              COUNT(DISTINCT mtt.mini_id) as mini_count
       FROM mini_types mt
@@ -1109,12 +1128,12 @@ app.put('/api/minis/:id/types', requireAuth, (req, res) => {
     const { id } = req.params;
     const { types } = req.body; // Array of { id: number, name: string, proxy_type: boolean }
 
-    const updateTypes = minisDb.transaction((miniId: number, typeData: Array<{ id: number, proxy_type: boolean }>) => {
+    const updateTypes = getMinisDb().transaction((miniId: number, typeData: Array<{ id: number, proxy_type: boolean }>) => {
       // Delete all existing type relationships
-      minisDb.prepare('DELETE FROM mini_to_types WHERE mini_id = ?').run(miniId);
+      getMinisDb().prepare('DELETE FROM mini_to_types WHERE mini_id = ?').run(miniId);
       
       // Add all type relationships
-      const insertRelationStmt = minisDb.prepare(
+      const insertRelationStmt = getMinisDb().prepare(
         'INSERT INTO mini_to_types (mini_id, type_id, proxy_type) VALUES (?, ?, ?)'
       );
       
@@ -1123,7 +1142,7 @@ app.put('/api/minis/:id/types', requireAuth, (req, res) => {
       }
       
       // Return the updated mini with types
-      return minisDb.prepare(`
+      return getMinisDb().prepare(`
         SELECT 
           m.*,
           json_group_array(json_object(
@@ -1151,7 +1170,7 @@ app.put('/api/minis/:id/types', requireAuth, (req, res) => {
 app.get('/api/miniatures', requireAuth, (_req, res) => {
   try {
     // First get all minis with their basic info
-    const minis = minisDb.prepare(`
+    const minis = getMinisDb().prepare(`
       SELECT 
         m.*,
         bs.base_size_name,
@@ -1170,7 +1189,7 @@ app.get('/api/miniatures', requireAuth, (_req, res) => {
 
     // For each mini, get its tags and types
     const minisWithDetails = minis.map(mini => {
-      const tags = minisDb.prepare(`
+      const tags = getMinisDb().prepare(`
         SELECT t.id, t.name
         FROM tags t
         JOIN mini_to_tags mtt ON t.id = mtt.tag_id
@@ -1178,7 +1197,7 @@ app.get('/api/miniatures', requireAuth, (_req, res) => {
         ORDER BY t.name
       `).all(mini.id) as Tag[];
 
-      const types = minisDb.prepare(`
+      const types = getMinisDb().prepare(`
         SELECT mt.id, mt.name, mtt.proxy_type
         FROM mini_types mt
         JOIN mini_to_types mtt ON mt.id = mtt.type_id
@@ -1303,13 +1322,13 @@ app.post('/api/miniatures', requireAuth, (req, res) => {
     }
 
     // Use a transaction to insert miniature and its relationships
-    const createMiniature = minisDb.transaction((data: MiniatureData) => {
+    const createMiniature = getMinisDb().transaction((data: MiniatureData) => {
       console.log('Starting transaction with data:', data);
 
       try {
         // Insert the miniature
         console.log('Inserting miniature...');
-        const mini = minisDb.prepare(`
+        const mini = getMinisDb().prepare(`
           INSERT INTO minis (
             name,
             description,
@@ -1337,7 +1356,7 @@ app.post('/api/miniatures', requireAuth, (req, res) => {
         // Insert types if any
         if (data.types && data.types.length > 0) {
           console.log('Inserting types:', data.types);
-          const insertTypeStmt = minisDb.prepare(
+          const insertTypeStmt = getMinisDb().prepare(
             'INSERT INTO mini_to_types (mini_id, type_id, proxy_type) VALUES (?, ?, ?)'
           );
           for (const type of data.types) {
@@ -1348,13 +1367,13 @@ app.post('/api/miniatures', requireAuth, (req, res) => {
         // Handle tags - create new ones if needed
         if (data.tags && data.tags.length > 0) {
           console.log('Processing tags:', data.tags);
-          const findTagStmt = minisDb.prepare(
+          const findTagStmt = getMinisDb().prepare(
             'SELECT id, name FROM tags WHERE name = ? COLLATE NOCASE'
           );
-          const insertTagStmt = minisDb.prepare(
+          const insertTagStmt = getMinisDb().prepare(
             'INSERT INTO tags (name) VALUES (?) RETURNING *'
           );
-          const linkTagStmt = minisDb.prepare(
+          const linkTagStmt = getMinisDb().prepare(
             'INSERT INTO mini_to_tags (mini_id, tag_id) VALUES (?, ?)'
           );
 
@@ -1384,7 +1403,7 @@ app.post('/api/miniatures', requireAuth, (req, res) => {
 
         // Return the complete miniature with all relationships
         console.log('Fetching complete miniature data...');
-        const result = minisDb.prepare(`
+        const result = getMinisDb().prepare(`
           SELECT 
             m.*,
             bs.base_size_name,

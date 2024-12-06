@@ -60,27 +60,48 @@ export function Login({ onLogin }: { onLogin: () => void }) {
   const [currentAnimation] = useState(() => 
     kenBurnsAnimations[Math.floor(Math.random() * kenBurnsAnimations.length)]
   );
+  const [imagesLoaded, setImagesLoaded] = useState<boolean[]>([]);
   const navigate = useNavigate();
 
+  // Initialize with just the first background
   useEffect(() => {
     const shuffled = [...defaultBackgrounds].sort(() => Math.random() - 0.5);
-    setBackgrounds(shuffled);
-    console.log('Initial backgrounds:', shuffled);
+    setBackgrounds([shuffled[0]]); // Start with just one image
+    setImagesLoaded(new Array(defaultBackgrounds.length).fill(false));
+    
+    // Lazy load the rest of the images
+    const preloadImages = async () => {
+      const newImages = [...shuffled];
+      for (let i = 1; i < newImages.length; i++) {
+        const img = new Image();
+        img.src = newImages[i];
+        await new Promise((resolve) => {
+          img.onload = () => {
+            setImagesLoaded(prev => {
+              const updated = [...prev];
+              updated[i] = true;
+              return updated;
+            });
+            resolve(null);
+          };
+        });
+        setBackgrounds(prev => [...prev, newImages[i]]);
+      }
+    };
+
+    preloadImages();
   }, []);
 
+  // Only start background rotation after at least 2 images are loaded
   useEffect(() => {
-    if (backgrounds.length === 0) return;
+    if (backgrounds.length < 2) return;
 
     const interval = setInterval(() => {
-      setCurrentBgIndex((prev) => {
-        const newIndex = (prev + 1) % backgrounds.length;
-        console.log('Changing background to:', backgrounds[newIndex]);
-        return newIndex;
-      });
+      setCurrentBgIndex((prev) => (prev + 1) % backgrounds.length);
     }, 8000);
 
     return () => clearInterval(interval);
-  }, [backgrounds]);
+  }, [backgrounds.length]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,10 +151,11 @@ export function Login({ onLogin }: { onLogin: () => void }) {
               left: 0,
               right: 0,
               bottom: 0,
-              transition: 'background-image 3s ease-in-out',
+              transition: 'background-image 3s ease-in-out, opacity 1s ease-in-out',
               filter: 'brightness(0.2) blur(8px)',
               transformOrigin: 'center center',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              opacity: imagesLoaded[currentBgIndex] ? 1 : 0,
             }}
           />
         )}

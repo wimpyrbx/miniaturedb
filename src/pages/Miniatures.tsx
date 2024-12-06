@@ -778,10 +778,39 @@ const TimelineView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp
     }))
   , [minis]);
 
-  const paginatedMinis = minis.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+  // Sort minis by created_at in descending order (most recent first)
+  const sortedMinis = useMemo(() => {
+    return [...minis].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [minis]);
+
+  // Group minis by time period
+  const groupedMinis = useMemo(() => {
+    const now = new Date();
+    const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+
+    return {
+      last24h: sortedMinis.filter(mini => new Date(mini.created_at) >= last24h),
+      thisMonth: sortedMinis.filter(mini => {
+        const createdAt = new Date(mini.created_at);
+        return createdAt < last24h && createdAt >= lastMonth;
+      }),
+      older: sortedMinis.filter(mini => new Date(mini.created_at) < lastMonth)
+    };
+  }, [sortedMinis]);
+
+  // Paginate the grouped minis
+  const paginatedMinis = useMemo(() => {
+    const allMinis = [
+      ...groupedMinis.last24h,
+      ...groupedMinis.thisMonth,
+      ...groupedMinis.older
+    ];
+    return allMinis.slice(
+      (currentPage - 1) * ITEMS_PER_PAGE,
+      currentPage * ITEMS_PER_PAGE
+    );
+  }, [groupedMinis, currentPage]);
 
   return (
     <Stack>
@@ -790,182 +819,554 @@ const TimelineView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp
         flexDirection: 'column',
         gap: 'var(--mantine-spacing-md)'
       }}>
-        {paginatedMinis.map((mini, index) => (
-          <Card
-            key={mini.id}
-            shadow="sm"
-            padding="lg"
-            withBorder
-            style={{
-              transition: 'all 200ms ease',
-              position: 'relative',
-              overflow: 'hidden',
-              cursor: 'pointer'
-            }}
-            onClick={() => onEdit(mini)}
-            onMouseEnter={(e) => {
-              const target = e.currentTarget;
-              target.style.transform = 'scale(1.02)';
-              target.style.zIndex = '100';
-              target.style.boxShadow = '0 0 20px 0 var(--mantine-color-primary-light)';
-              const bgImage = target.querySelector('.background-image') as HTMLElement;
-              if (bgImage) {
-                bgImage.style.opacity = '0.15';
-                bgImage.style.transform = 'scale(1.1)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              const target = e.currentTarget;
-              target.style.transform = 'none';
-              target.style.zIndex = '';
-              target.style.boxShadow = 'var(--mantine-shadow-sm)';
-              const bgImage = target.querySelector('.background-image') as HTMLElement;
-              if (bgImage) {
-                bgImage.style.opacity = '0';
-                bgImage.style.transform = 'scale(0.95)';
-              }
-            }}
-          >
-            {/* Background blur effect */}
-            {mini.imageStatus?.hasOriginal && (
-              <div 
-                className="background-image"
+        {/* Last 24 Hours Section */}
+        {groupedMinis.last24h.length > 0 && (
+          <>
+            <Text size="lg" fw={500} mt="md">Last 24 Hours</Text>
+            {groupedMinis.last24h.map((mini, index) => (
+              <Card
+                key={mini.id}
+                shadow="sm"
+                padding="lg"
+                withBorder
                 style={{
-                  position: 'absolute',
-                  top: '-10%',
-                  left: '-10%',
-                  right: '-10%',
-                  bottom: '-10%',
-                  backgroundImage: `url(${getMiniatureImagePath(mini.id, 'original', mini.imageTimestamp || imageTimestamp)})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  filter: 'blur(10px)',
-                  opacity: 0,
-                  transition: 'all 400ms cubic-bezier(0.4, 0, 0.2, 1)',
-                  transform: 'scale(0.95)',
-                  transformOrigin: `${scaleOrigins[index].x}% ${scaleOrigins[index].y}%`,
-                  zIndex: 0
+                  transition: 'all 200ms ease',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  cursor: 'pointer'
                 }}
-              />
-            )}
-            
-            <Group wrap="nowrap" align="flex-start" gap="xl" style={{ position: 'relative', zIndex: 1 }}>
-              {/* Image Section */}
-              <div style={{ 
-                width: '180px',
-                height: '180px',
-                backgroundColor: 'var(--mantine-color-dark-4)',
-                borderRadius: 'var(--mantine-radius-md)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                position: 'relative',
-                overflow: 'hidden'
-              }}>
-                {mini.imageStatus?.hasOriginal ? (
-                  <img 
-                    src={getMiniatureImagePath(mini.id, 'original', mini.imageTimestamp || imageTimestamp)}
-                    alt={mini.name}
+                onClick={() => onEdit(mini)}
+                onMouseEnter={(e) => {
+                  const target = e.currentTarget;
+                  target.style.transform = 'scale(1.02)';
+                  target.style.zIndex = '100';
+                  target.style.boxShadow = '0 0 20px 0 var(--mantine-color-primary-light)';
+                  const bgImage = target.querySelector('.background-image') as HTMLElement;
+                  if (bgImage) {
+                    bgImage.style.opacity = '0.15';
+                    bgImage.style.transform = 'scale(1.1)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  const target = e.currentTarget;
+                  target.style.transform = 'none';
+                  target.style.zIndex = '';
+                  target.style.boxShadow = 'var(--mantine-shadow-sm)';
+                  const bgImage = target.querySelector('.background-image') as HTMLElement;
+                  if (bgImage) {
+                    bgImage.style.opacity = '0';
+                    bgImage.style.transform = 'scale(0.95)';
+                  }
+                }}
+              >
+                {/* Background blur effect */}
+                {mini.imageStatus?.hasOriginal && (
+                  <div 
+                    className="background-image"
                     style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'contain'
+                      position: 'absolute',
+                      top: '-10%',
+                      left: '-10%',
+                      right: '-10%',
+                      bottom: '-10%',
+                      backgroundImage: `url(${getMiniatureImagePath(mini.id, 'original', mini.imageTimestamp || imageTimestamp)})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      filter: 'blur(10px)',
+                      opacity: 0,
+                      transition: 'all 400ms cubic-bezier(0.4, 0, 0.2, 1)',
+                      transform: 'scale(0.95)',
+                      transformOrigin: `${scaleOrigins[index].x}% ${scaleOrigins[index].y}%`,
+                      zIndex: 0
                     }}
                   />
-                ) : (
-                  <IconPhoto size={48} style={{ opacity: 0.5 }} />
                 )}
-                <div style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  padding: '8px',
-                  background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
-                  zIndex: 1
-                }}>
-                  <PillsList 
-                    items={mini.types.filter(type => !type.proxy_type)} 
-                    color="teal"
-                  />
-                </div>
-              </div>
-
-              {/* Content Section */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <Stack gap="xs">
-                  {/* Title and Product Info */}
-                  <div>
-                    <Text fw={500} size="xl" style={{ lineHeight: 1.2, marginBottom: 4 }}>{mini.name}</Text>
-                    <Text size="sm" style={{ fontStyle: 'italic' }} lineClamp={2}>
-                      {[mini.company_name, mini.product_line_name, mini.product_set_name]
-                        .filter(Boolean)
-                        .join(' » ')}
-                    </Text>
+                
+                <Group wrap="nowrap" align="flex-start" gap="xl" style={{ position: 'relative', zIndex: 1 }}>
+                  {/* Image Section */}
+                  <div style={{ 
+                    width: '180px',
+                    height: '180px',
+                    backgroundColor: 'var(--mantine-color-dark-4)',
+                    borderRadius: 'var(--mantine-radius-md)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    {mini.imageStatus?.hasOriginal ? (
+                      <img 
+                        src={getMiniatureImagePath(mini.id, 'original', mini.imageTimestamp || imageTimestamp)}
+                        alt={mini.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain'
+                        }}
+                      />
+                    ) : (
+                      <IconPhoto size={48} style={{ opacity: 0.5 }} />
+                    )}
+                    <div style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      padding: '8px',
+                      background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
+                      zIndex: 1
+                    }}>
+                      <PillsList 
+                        items={mini.types.filter(type => !type.proxy_type)} 
+                        color="teal"
+                      />
+                    </div>
                   </div>
 
-                  {/* Additional Info */}
-                  <Group gap="xs">
-                    <Text size="sm" c="dimmed" style={{ 
-                      padding: '4px 8px',
-                      border: '1px solid var(--mantine-color-dark-4)',
-                      borderRadius: 'var(--mantine-radius-sm)',
-                      backgroundColor: 'var(--mantine-color-dark-7)',
-                      whiteSpace: 'nowrap'
-                    }}>
-                      {mini.base_size_name 
-                        ? mini.base_size_name.charAt(0).toUpperCase() + mini.base_size_name.slice(1).toLowerCase() 
-                        : 'No Base'}
-                    </Text>
-                    <Text size="sm" c="dimmed" style={{ 
-                      padding: '4px 8px',
-                      border: '1px solid var(--mantine-color-dark-4)',
-                      borderRadius: 'var(--mantine-radius-sm)',
-                      backgroundColor: 'var(--mantine-color-dark-6)',
-                      whiteSpace: 'nowrap'
-                    }}>
-                      {mini.location}
-                    </Text>
-                    {mini.painted_by_name && (
-                      <Text size="sm" c="dimmed" style={{ 
-                        padding: '4px 8px',
-                        border: '1px solid var(--mantine-color-dark-4)',
-                        borderRadius: 'var(--mantine-radius-sm)',
-                        backgroundColor: 'var(--mantine-color-dark-5)',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {mini.painted_by_name}
-                      </Text>
-                    )}
-                  </Group>
+                  {/* Content Section */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Stack gap="xs">
+                      {/* Title and Product Info */}
+                      <div>
+                        <Text fw={500} size="xl" style={{ lineHeight: 1.2, marginBottom: 4 }}>{mini.name}</Text>
+                        <Text size="sm" style={{ fontStyle: 'italic' }} lineClamp={2}>
+                          {[mini.company_name, mini.product_line_name, mini.product_set_name]
+                            .filter(Boolean)
+                            .join(' » ')}
+                        </Text>
+                      </div>
 
-                  {/* Timeline-specific info */}
-                  <Stack gap="xs">
-                    {mini.purchased_at && (
+                      {/* Additional Info */}
                       <Group gap="xs">
-                        <Text size="sm" fw={500}>Purchased:</Text>
-                        <Text size="sm">{new Date(mini.purchased_at).toLocaleDateString()}</Text>
+                        <Text size="sm" c="dimmed" style={{ 
+                          padding: '4px 8px',
+                          border: '1px solid var(--mantine-color-dark-4)',
+                          borderRadius: 'var(--mantine-radius-sm)',
+                          backgroundColor: 'var(--mantine-color-dark-7)',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {mini.base_size_name 
+                            ? mini.base_size_name.charAt(0).toUpperCase() + mini.base_size_name.slice(1).toLowerCase() 
+                            : 'No Base'}
+                        </Text>
+                        <Text size="sm" c="dimmed" style={{ 
+                          padding: '4px 8px',
+                          border: '1px solid var(--mantine-color-dark-4)',
+                          borderRadius: 'var(--mantine-radius-sm)',
+                          backgroundColor: 'var(--mantine-color-dark-6)',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {mini.location}
+                        </Text>
+                        {mini.painted_by_name && (
+                          <Text size="sm" c="dimmed" style={{ 
+                            padding: '4px 8px',
+                            border: '1px solid var(--mantine-color-dark-4)',
+                            borderRadius: 'var(--mantine-radius-sm)',
+                            backgroundColor: 'var(--mantine-color-dark-5)',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {mini.painted_by_name}
+                          </Text>
+                        )}
                       </Group>
+
+                      {/* Timeline-specific info */}
+                      <Stack gap="xs">
+                        {mini.purchased_at && (
+                          <Group gap="xs">
+                            <Text size="sm" fw={500}>Purchased:</Text>
+                            <Text size="sm">{new Date(mini.purchased_at).toLocaleDateString()}</Text>
+                          </Group>
+                        )}
+                        {mini.started_at && (
+                          <Group gap="xs">
+                            <Text size="sm" fw={500}>Started:</Text>
+                            <Text size="sm">{new Date(mini.started_at).toLocaleDateString()}</Text>
+                          </Group>
+                        )}
+                        {mini.completed_at && (
+                          <Group gap="xs">
+                            <Text size="sm" fw={500}>Completed:</Text>
+                            <Text size="sm">{new Date(mini.completed_at).toLocaleDateString()}</Text>
+                          </Group>
+                        )}
+                      </Stack>
+                    </Stack>
+                  </div>
+                </Group>
+              </Card>
+            ))}
+          </>
+        )}
+
+        {/* This Month Section */}
+        {groupedMinis.thisMonth.length > 0 && (
+          <>
+            <Text size="lg" fw={500} mt="md">This Month</Text>
+            {groupedMinis.thisMonth.map((mini, index) => (
+              <Card
+                key={mini.id}
+                shadow="sm"
+                padding="lg"
+                withBorder
+                style={{
+                  transition: 'all 200ms ease',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  cursor: 'pointer'
+                }}
+                onClick={() => onEdit(mini)}
+                onMouseEnter={(e) => {
+                  const target = e.currentTarget;
+                  target.style.transform = 'scale(1.02)';
+                  target.style.zIndex = '100';
+                  target.style.boxShadow = '0 0 20px 0 var(--mantine-color-primary-light)';
+                  const bgImage = target.querySelector('.background-image') as HTMLElement;
+                  if (bgImage) {
+                    bgImage.style.opacity = '0.15';
+                    bgImage.style.transform = 'scale(1.1)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  const target = e.currentTarget;
+                  target.style.transform = 'none';
+                  target.style.zIndex = '';
+                  target.style.boxShadow = 'var(--mantine-shadow-sm)';
+                  const bgImage = target.querySelector('.background-image') as HTMLElement;
+                  if (bgImage) {
+                    bgImage.style.opacity = '0';
+                    bgImage.style.transform = 'scale(0.95)';
+                  }
+                }}
+              >
+                {/* Background blur effect */}
+                {mini.imageStatus?.hasOriginal && (
+                  <div 
+                    className="background-image"
+                    style={{
+                      position: 'absolute',
+                      top: '-10%',
+                      left: '-10%',
+                      right: '-10%',
+                      bottom: '-10%',
+                      backgroundImage: `url(${getMiniatureImagePath(mini.id, 'original', mini.imageTimestamp || imageTimestamp)})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      filter: 'blur(10px)',
+                      opacity: 0,
+                      transition: 'all 400ms cubic-bezier(0.4, 0, 0.2, 1)',
+                      transform: 'scale(0.95)',
+                      transformOrigin: `${scaleOrigins[index].x}% ${scaleOrigins[index].y}%`,
+                      zIndex: 0
+                    }}
+                  />
+                )}
+                
+                <Group wrap="nowrap" align="flex-start" gap="xl" style={{ position: 'relative', zIndex: 1 }}>
+                  {/* Image Section */}
+                  <div style={{ 
+                    width: '180px',
+                    height: '180px',
+                    backgroundColor: 'var(--mantine-color-dark-4)',
+                    borderRadius: 'var(--mantine-radius-md)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    {mini.imageStatus?.hasOriginal ? (
+                      <img 
+                        src={getMiniatureImagePath(mini.id, 'original', mini.imageTimestamp || imageTimestamp)}
+                        alt={mini.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain'
+                        }}
+                      />
+                    ) : (
+                      <IconPhoto size={48} style={{ opacity: 0.5 }} />
                     )}
-                    {mini.started_at && (
+                    <div style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      padding: '8px',
+                      background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
+                      zIndex: 1
+                    }}>
+                      <PillsList 
+                        items={mini.types.filter(type => !type.proxy_type)} 
+                        color="teal"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Content Section */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Stack gap="xs">
+                      {/* Title and Product Info */}
+                      <div>
+                        <Text fw={500} size="xl" style={{ lineHeight: 1.2, marginBottom: 4 }}>{mini.name}</Text>
+                        <Text size="sm" style={{ fontStyle: 'italic' }} lineClamp={2}>
+                          {[mini.company_name, mini.product_line_name, mini.product_set_name]
+                            .filter(Boolean)
+                            .join(' » ')}
+                        </Text>
+                      </div>
+
+                      {/* Additional Info */}
                       <Group gap="xs">
-                        <Text size="sm" fw={500}>Started:</Text>
-                        <Text size="sm">{new Date(mini.started_at).toLocaleDateString()}</Text>
+                        <Text size="sm" c="dimmed" style={{ 
+                          padding: '4px 8px',
+                          border: '1px solid var(--mantine-color-dark-4)',
+                          borderRadius: 'var(--mantine-radius-sm)',
+                          backgroundColor: 'var(--mantine-color-dark-7)',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {mini.base_size_name 
+                            ? mini.base_size_name.charAt(0).toUpperCase() + mini.base_size_name.slice(1).toLowerCase() 
+                            : 'No Base'}
+                        </Text>
+                        <Text size="sm" c="dimmed" style={{ 
+                          padding: '4px 8px',
+                          border: '1px solid var(--mantine-color-dark-4)',
+                          borderRadius: 'var(--mantine-radius-sm)',
+                          backgroundColor: 'var(--mantine-color-dark-6)',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {mini.location}
+                        </Text>
+                        {mini.painted_by_name && (
+                          <Text size="sm" c="dimmed" style={{ 
+                            padding: '4px 8px',
+                            border: '1px solid var(--mantine-color-dark-4)',
+                            borderRadius: 'var(--mantine-radius-sm)',
+                            backgroundColor: 'var(--mantine-color-dark-5)',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {mini.painted_by_name}
+                          </Text>
+                        )}
                       </Group>
+
+                      {/* Timeline-specific info */}
+                      <Stack gap="xs">
+                        {mini.purchased_at && (
+                          <Group gap="xs">
+                            <Text size="sm" fw={500}>Purchased:</Text>
+                            <Text size="sm">{new Date(mini.purchased_at).toLocaleDateString()}</Text>
+                          </Group>
+                        )}
+                        {mini.started_at && (
+                          <Group gap="xs">
+                            <Text size="sm" fw={500}>Started:</Text>
+                            <Text size="sm">{new Date(mini.started_at).toLocaleDateString()}</Text>
+                          </Group>
+                        )}
+                        {mini.completed_at && (
+                          <Group gap="xs">
+                            <Text size="sm" fw={500}>Completed:</Text>
+                            <Text size="sm">{new Date(mini.completed_at).toLocaleDateString()}</Text>
+                          </Group>
+                        )}
+                      </Stack>
+                    </Stack>
+                  </div>
+                </Group>
+              </Card>
+            ))}
+          </>
+        )}
+
+        {/* Older Section */}
+        {groupedMinis.older.length > 0 && (
+          <>
+            <Text size="lg" fw={500} mt="md">Older</Text>
+            {groupedMinis.older.map((mini, index) => (
+              <Card
+                key={mini.id}
+                shadow="sm"
+                padding="lg"
+                withBorder
+                style={{
+                  transition: 'all 200ms ease',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  cursor: 'pointer'
+                }}
+                onClick={() => onEdit(mini)}
+                onMouseEnter={(e) => {
+                  const target = e.currentTarget;
+                  target.style.transform = 'scale(1.02)';
+                  target.style.zIndex = '100';
+                  target.style.boxShadow = '0 0 20px 0 var(--mantine-color-primary-light)';
+                  const bgImage = target.querySelector('.background-image') as HTMLElement;
+                  if (bgImage) {
+                    bgImage.style.opacity = '0.15';
+                    bgImage.style.transform = 'scale(1.1)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  const target = e.currentTarget;
+                  target.style.transform = 'none';
+                  target.style.zIndex = '';
+                  target.style.boxShadow = 'var(--mantine-shadow-sm)';
+                  const bgImage = target.querySelector('.background-image') as HTMLElement;
+                  if (bgImage) {
+                    bgImage.style.opacity = '0';
+                    bgImage.style.transform = 'scale(0.95)';
+                  }
+                }}
+              >
+                {/* Background blur effect */}
+                {mini.imageStatus?.hasOriginal && (
+                  <div 
+                    className="background-image"
+                    style={{
+                      position: 'absolute',
+                      top: '-10%',
+                      left: '-10%',
+                      right: '-10%',
+                      bottom: '-10%',
+                      backgroundImage: `url(${getMiniatureImagePath(mini.id, 'original', mini.imageTimestamp || imageTimestamp)})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      filter: 'blur(10px)',
+                      opacity: 0,
+                      transition: 'all 400ms cubic-bezier(0.4, 0, 0.2, 1)',
+                      transform: 'scale(0.95)',
+                      transformOrigin: `${scaleOrigins[index].x}% ${scaleOrigins[index].y}%`,
+                      zIndex: 0
+                    }}
+                  />
+                )}
+                
+                <Group wrap="nowrap" align="flex-start" gap="xl" style={{ position: 'relative', zIndex: 1 }}>
+                  {/* Image Section */}
+                  <div style={{ 
+                    width: '180px',
+                    height: '180px',
+                    backgroundColor: 'var(--mantine-color-dark-4)',
+                    borderRadius: 'var(--mantine-radius-md)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    {mini.imageStatus?.hasOriginal ? (
+                      <img 
+                        src={getMiniatureImagePath(mini.id, 'original', mini.imageTimestamp || imageTimestamp)}
+                        alt={mini.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain'
+                        }}
+                      />
+                    ) : (
+                      <IconPhoto size={48} style={{ opacity: 0.5 }} />
                     )}
-                    {mini.completed_at && (
+                    <div style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      padding: '8px',
+                      background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
+                      zIndex: 1
+                    }}>
+                      <PillsList 
+                        items={mini.types.filter(type => !type.proxy_type)} 
+                        color="teal"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Content Section */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Stack gap="xs">
+                      {/* Title and Product Info */}
+                      <div>
+                        <Text fw={500} size="xl" style={{ lineHeight: 1.2, marginBottom: 4 }}>{mini.name}</Text>
+                        <Text size="sm" style={{ fontStyle: 'italic' }} lineClamp={2}>
+                          {[mini.company_name, mini.product_line_name, mini.product_set_name]
+                            .filter(Boolean)
+                            .join(' » ')}
+                        </Text>
+                      </div>
+
+                      {/* Additional Info */}
                       <Group gap="xs">
-                        <Text size="sm" fw={500}>Completed:</Text>
-                        <Text size="sm">{new Date(mini.completed_at).toLocaleDateString()}</Text>
+                        <Text size="sm" c="dimmed" style={{ 
+                          padding: '4px 8px',
+                          border: '1px solid var(--mantine-color-dark-4)',
+                          borderRadius: 'var(--mantine-radius-sm)',
+                          backgroundColor: 'var(--mantine-color-dark-7)',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {mini.base_size_name 
+                            ? mini.base_size_name.charAt(0).toUpperCase() + mini.base_size_name.slice(1).toLowerCase() 
+                            : 'No Base'}
+                        </Text>
+                        <Text size="sm" c="dimmed" style={{ 
+                          padding: '4px 8px',
+                          border: '1px solid var(--mantine-color-dark-4)',
+                          borderRadius: 'var(--mantine-radius-sm)',
+                          backgroundColor: 'var(--mantine-color-dark-6)',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {mini.location}
+                        </Text>
+                        {mini.painted_by_name && (
+                          <Text size="sm" c="dimmed" style={{ 
+                            padding: '4px 8px',
+                            border: '1px solid var(--mantine-color-dark-4)',
+                            borderRadius: 'var(--mantine-radius-sm)',
+                            backgroundColor: 'var(--mantine-color-dark-5)',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {mini.painted_by_name}
+                          </Text>
+                        )}
                       </Group>
-                    )}
-                  </Stack>
-                </Stack>
-              </div>
-            </Group>
-          </Card>
-        ))}
+
+                      {/* Timeline-specific info */}
+                      <Stack gap="xs">
+                        {mini.purchased_at && (
+                          <Group gap="xs">
+                            <Text size="sm" fw={500}>Purchased:</Text>
+                            <Text size="sm">{new Date(mini.purchased_at).toLocaleDateString()}</Text>
+                          </Group>
+                        )}
+                        {mini.started_at && (
+                          <Group gap="xs">
+                            <Text size="sm" fw={500}>Started:</Text>
+                            <Text size="sm">{new Date(mini.started_at).toLocaleDateString()}</Text>
+                          </Group>
+                        )}
+                        {mini.completed_at && (
+                          <Group gap="xs">
+                            <Text size="sm" fw={500}>Completed:</Text>
+                            <Text size="sm">{new Date(mini.completed_at).toLocaleDateString()}</Text>
+                          </Group>
+                        )}
+                      </Stack>
+                    </Stack>
+                  </div>
+                </Group>
+              </Card>
+            ))}
+          </>
+        )}
       </div>
 
       {/* Pagination */}
@@ -1753,32 +2154,45 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
       setShowImage(false);
       setIsImageLoading(false);
       setImagePreview(null);
-    } else if (formData?.id && formData.imageStatus?.hasOriginal) {
-      // Initial load of existing image
+    } else {
+      // Reset image states when opening modal
       setShowImage(false);
       setIsImageLoading(true);
+      setImagePreview(null);
       
+      // Set a small delay to allow the modal to render before showing the image
       const timer = setTimeout(() => {
         setShowImage(true);
-      }, 200);
+      }, 100);
       
       return () => clearTimeout(timer);
     }
-  }, [opened]);
+  }, [opened, miniature?.id]); // Add miniature?.id as dependency to trigger on miniature change
 
-  // Effect to handle only new image preview changes
+  // Effect to handle image loading state
   useEffect(() => {
-    if (imagePreview) {
-      setShowImage(false);
+    if (formData?.id && formData.imageStatus?.hasOriginal) {
       setIsImageLoading(true);
+      setShowImage(false);
       
       const timer = setTimeout(() => {
         setShowImage(true);
-      }, 200);
+      }, 100);
       
       return () => clearTimeout(timer);
     }
-  }, [imagePreview]);
+  }, [formData?.id, formData?.imageStatus?.hasOriginal]);
+
+  // Fix duplicate transition property in image style
+  const imageStyle = {
+    width: 'calc(100% - 16px)',
+    height: 'calc(100% - 16px)',
+    objectFit: 'contain',
+    opacity: showImage && !isImageLoading ? 1 : 0,
+    transform: showImage && !isImageLoading ? 'scale(1)' : 'scale(0.9)',
+    transition: 'opacity 0.3s ease, transform 0.3s ease',
+    willChange: 'opacity, transform'
+  } as const;
 
   return (
     <AdminModal
@@ -1812,37 +2226,21 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  overflow: 'hidden' // Prevent any image overflow during animation
+                  overflow: 'hidden'
                 }}
               >
                 {imagePreview ? (
                   <img
                     src={imagePreview}
                     alt="Preview"
-                    style={{
-                      width: 'calc(100% - 16px)',
-                      height: 'calc(100% - 16px)',
-                      objectFit: 'contain',
-                      opacity: showImage && !isImageLoading ? 1 : 0,
-                      transform: showImage && !isImageLoading ? 'scale(1)' : 'scale(0.9)',
-                      transition: 'opacity 0.3s ease, transform 0.3s ease',
-                      willChange: 'opacity, transform'
-                    }}
+                    style={imageStyle}
                     onLoad={() => setIsImageLoading(false)}
                   />
                 ) : formData?.id && formData.imageStatus?.hasOriginal ? (
                   <img
                     src={`${getImagePath(formData.id)}?t=${formData.imageTimestamp}`}
                     alt="Current miniature"
-                    style={{
-                      width: 'calc(100% - 16px)',
-                      height: 'calc(100% - 16px)',
-                      objectFit: 'contain',
-                      opacity: showImage && !isImageLoading ? 1 : 0,
-                      transform: showImage && !isImageLoading ? 'scale(1)' : 'scale(0.9)',
-                      transition: 'opacity 0.3s ease, transform 0.3s ease',
-                      willChange: 'opacity, transform'
-                    }}
+                    style={imageStyle}
                     onLoad={() => setIsImageLoading(false)}
                   />
                 ) : (
@@ -1852,7 +2250,7 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
                     <Text size="xs" c="dimmed">The image will be uploaded when you save</Text>
                   </Stack>
                 )}
-                {isImageLoading && (
+                {isImageLoading && (imagePreview || (formData?.id && formData.imageStatus?.hasOriginal)) && (
                   <div
                     style={{
                       position: 'absolute',
