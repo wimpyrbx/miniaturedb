@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { useState } from 'react';
-import { Stack, Title, Text, Group, Card, Button, TextInput, Select, Textarea, NumberInput, useMantineColorScheme, TagsInput, Badge, Center, Loader, SegmentedControl, Pagination, Box, Grid, ActionIcon, Table, Combobox, useCombobox, InputBase, ScrollArea, Notification, SimpleGrid, List } from '@mantine/core';
+import { Stack, Title, Text, Group, Card, Button, TextInput, Select, Textarea, NumberInput, useMantineColorScheme, TagsInput, Badge, Center, Loader, SegmentedControl, Pagination, Box, Grid, ActionIcon, Table, Combobox, useCombobox, InputBase, ScrollArea, Notification, SimpleGrid, List, useMantineTheme } from '@mantine/core';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { IconPlus, IconPhoto, IconTable, IconLayoutGrid, IconLayoutList, IconSearch, IconTrash, IconX, IconCheck, IconClock, IconUpload } from '@tabler/icons-react';
 import { AdminModal } from '../components/AdminModal';
@@ -145,6 +145,7 @@ const TableView = ({ minis, onEdit, currentPage, imageTimestamp }: {
   onPageChange: (page: number) => void,
   imageTimestamp: number
 }) => {
+  const theme = useMantineTheme();
   const paginatedMinis = minis.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
@@ -157,16 +158,14 @@ const TableView = ({ minis, onEdit, currentPage, imageTimestamp }: {
   return (
     <Table highlightOnHover withTableBorder>
       <Table.Thead style={{ 
-        backgroundColor: 'var(--mantine-color-dark-6)',
-        borderBottom: '2px solid var(--mantine-color-dark-4)'
+        backgroundColor: theme.colors.dark[7],
+        borderBottom: `1px solid ${theme.colors.dark[4]}`
       }}>
         <Table.Tr>
           <Table.Th style={{ width: '60px' }}></Table.Th>
-          <Table.Th>Miniature Info</Table.Th>
-          <Table.Th>Types & Categories</Table.Th>
-          <Table.Th>Tags</Table.Th>
-          <Table.Th>Product</Table.Th>
-          <Table.Th>Storage</Table.Th>
+          <Table.Th>Name</Table.Th>
+          <Table.Th>Types / Categories</Table.Th>
+          <Table.Th>Details</Table.Th>
         </Table.Tr>
       </Table.Thead>
       <Table.Tbody>
@@ -178,7 +177,7 @@ const TableView = ({ minis, onEdit, currentPage, imageTimestamp }: {
               cursor: 'pointer',
               transition: 'background-color 0.2s',
               '&:hover': {
-                backgroundColor: 'var(--mantine-color-dark-6)'
+                backgroundColor: theme.colors.dark[6]
               }
             }}
           >
@@ -187,8 +186,8 @@ const TableView = ({ minis, onEdit, currentPage, imageTimestamp }: {
               <div style={{ 
                 width: '50px',
                 height: '50px',
-                backgroundColor: 'var(--mantine-color-dark-4)',
-                borderRadius: 'var(--mantine-radius-sm)',
+                backgroundColor: theme.colors.dark[4],
+                borderRadius: theme.radius.sm,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -197,11 +196,7 @@ const TableView = ({ minis, onEdit, currentPage, imageTimestamp }: {
               }}>
                 {mini.imageStatus?.hasOriginal ? (
                   <img 
-                    src={getMiniatureImagePath(
-                      mini.id, 
-                      'original', 
-                      mini.imageTimestamp || imageTimestamp
-                    )}
+                    src={getMiniatureImagePath(mini.id, 'original', mini.imageTimestamp || imageTimestamp)}
                     alt={mini.name}
                     style={{
                       width: '100%',
@@ -215,124 +210,96 @@ const TableView = ({ minis, onEdit, currentPage, imageTimestamp }: {
               </div>
             </Table.Td>
 
-            {/* Miniature Info Column */}
+            {/* Name Column */}
+            <Table.Td>
+              <Group justify="space-between" wrap="nowrap">
+                <Text fw={500} size="sm" style={{ flex: 1 }}>{mini.name}</Text>
+                {mini.quantity > 1 && (
+                  <Badge size="sm" variant="light" color="blue">×{mini.quantity}</Badge>
+                )}
+              </Group>
+            </Table.Td>
+
+            {/* Types / Categories Column */}
             <Table.Td>
               <Stack gap={4}>
-                <Group justify="space-between" wrap="nowrap">
-                  <Text fw={500} size="sm" style={{ flex: 1 }}>{mini.name}</Text>
-                  {mini.quantity > 1 && (
-                    <Badge size="sm" variant="light" color="blue">
-                      ×{mini.quantity}
-                    </Badge>
-                  )}
-                </Group>
+                {/* Types Row */}
                 <Group gap={4}>
-                  <Text size="xs" c="dimmed" fw={500}>Base Size:</Text>
-                  <Text size="xs" c="dimmed">
-                    {mini.base_size_name ? capitalizeFirst(mini.base_size_name) : 'None'}
-                  </Text>
+                  {mini.types
+                    .filter(type => !type.proxy_type)
+                    .map((type, index) => (
+                      <Badge 
+                        key={type.id} 
+                        size="sm"
+                        variant={index === 0 ? "filled" : "light"}
+                        color="teal"
+                      >
+                        {type.name}
+                      </Badge>
+                    ))}
+                  {mini.types
+                    .filter(type => type.proxy_type)
+                    .map(type => (
+                      <Badge 
+                        key={type.id} 
+                        size="xs"
+                        variant="light"
+                        color="gray"
+                      >
+                        {type.name}
+                      </Badge>
+                    ))}
                 </Group>
-                {mini.painted_by_name && (
-                  <Text size="xs" c="dimmed">
-                    {mini.painted_by_name.toLowerCase() === 'prepainted' ? 'Prepainted' : `Painted by ${mini.painted_by_name}`}
-                  </Text>
-                )}
-              </Stack>
-            </Table.Td>
 
-            {/* Types & Categories Column */}
-            <Table.Td>
-              <Stack gap={8}>
-                {/* Main Types */}
-                {mini.types.filter(type => !type.proxy_type).length > 0 && (
-                  <Stack gap={4}>
-                    <Group gap={4}>
-                      {mini.types
-                        .filter(type => !type.proxy_type)
-                        .map(type => (
-                          <Badge 
-                            key={type.id} 
-                            size="sm"
-                            variant="filled"
-                            color="teal"
-                          >
-                            {type.name}
-                          </Badge>
-                        ))}
-                    </Group>
-                    {mini.category_names && mini.category_names.length > 0 && (
-                      <Group gap={4}>
-                        {mini.category_names.map((category, index) => (
-                          <Badge
-                            key={index}
-                            size="xs"
-                            variant="light"
-                            color="grape"
-                          >
-                            {category}
-                          </Badge>
-                        ))}
-                      </Group>
-                    )}
-                  </Stack>
-                )}
-                
-                {/* Proxy Types */}
-                {mini.types.filter(type => type.proxy_type).length > 0 && (
-                  <Group gap={4}>
-                    {mini.types
-                      .filter(type => type.proxy_type)
-                      .map(type => (
-                        <Badge 
-                          key={type.id} 
-                          size="xs"
-                          variant="light"
-                          color="gray"
-                        >
-                          {type.name}
-                        </Badge>
-                      ))}
-                  </Group>
-                )}
-              </Stack>
-            </Table.Td>
-
-            {/* Tags Column */}
-            <Table.Td>
-              {mini.tags && mini.tags.length > 0 && (
+                {/* Categories Row */}
                 <Group gap={4}>
-                  {mini.tags.map(tag => (
-                    <Badge 
-                      key={tag.id} 
-                      size="xs" 
+                  {mini.category_names?.map((category, index) => (
+                    <Badge
+                      key={index}
+                      size="xs"
                       variant="light"
-                      color="blue"
+                      color="grape"
                     >
-                      {tag.name.replace(/^[^:]+:\s*/, '')}
+                      {category}
                     </Badge>
                   ))}
                 </Group>
-              )}
-            </Table.Td>
-
-            {/* Product Column */}
-            <Table.Td>
-              <Stack gap={2}>
-                {mini.company_name && (
-                  <Text size="xs" c="dimmed">{mini.company_name}</Text>
-                )}
-                {mini.product_line_name && (
-                  <Text size="xs" c="dimmed">{mini.product_line_name}</Text>
-                )}
-                {mini.product_set_name && (
-                  <Text size="sm" fw={500}>{mini.product_set_name}</Text>
-                )}
               </Stack>
             </Table.Td>
 
-            {/* Storage Column */}
+            {/* Details Column */}
             <Table.Td>
-              <Text size="sm">{mini.location || 'No location'}</Text>
+              <Stack gap={4}>
+                {/* Base Size & Painted By Row */}
+                <Group gap={4}>
+                  <Badge size="sm" variant="light" color="cyan">
+                    {mini.base_size_name ? capitalizeFirst(mini.base_size_name) : 'No Base'}
+                  </Badge>
+                  <Badge size="sm" variant="light" color="violet">
+                    {mini.painted_by_name?.toLowerCase() === 'prepainted' ? 'Prepainted' :
+                     mini.painted_by_name?.toLowerCase() === 'self' ? 'Selfpainted' :
+                     mini.painted_by_name ? `Painted by other` : 'Not painted'}
+                  </Badge>
+                </Group>
+
+                {/* Tags Row */}
+                <Group gap={4}>
+                  {mini.tags && mini.tags.length > 0 ? (
+                    mini.tags.map(tag => (
+                      <Badge 
+                        key={tag.id} 
+                        size="xs" 
+                        variant="light"
+                        color="blue"
+                      >
+                        {tag.name.replace(/^[^:]+:\s*/, '')}
+                      </Badge>
+                    ))
+                  ) : (
+                    <Text size="xs" c="dimmed" fs="italic">No tags</Text>
+                  )}
+                </Group>
+              </Stack>
             </Table.Td>
           </Table.Tr>
         ))}
@@ -2389,6 +2356,7 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
 };
 
 export default function Miniatures() {
+  const theme = useMantineTheme();
   useMantineColorScheme();
   const [editingMini, setEditingMini] = useState<Mini | null>(null);
   const [isAddingMini, setIsAddingMini] = useState(false);
@@ -2638,18 +2606,16 @@ export default function Miniatures() {
         </Group>
 
         <Stack p="sm">
+          {/* Filter Input */}
           <TextInput
-            ref={filterInputRef}
-            placeholder="Search..."
+            placeholder="Filter miniatures..."
             value={filterText}
-            onChange={handleFilterChange}
-            leftSection={<IconSearch size={16} style={{ opacity: 0.5 }} />}
-            styles={{
-              input: {
-                backgroundColor: 'var(--mantine-color-dark-6)',
-                '&:focus': {
-                  backgroundColor: 'var(--mantine-color-dark-5)',
-                }
+            onChange={(event) => setFilterText(event.currentTarget.value)}
+            style={{ 
+              marginBottom: theme.spacing.md,
+              backgroundColor: theme.colorScheme === 'dark' ? theme.colors.dark[7] : theme.white,
+              '&:focus': {
+                backgroundColor: theme.colorScheme === 'dark' ? theme.colors.dark[7] : theme.white,
               }
             }}
           />
