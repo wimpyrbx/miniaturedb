@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { Grid, Title, Card, Button, Group, Text, Stack, Modal, TextInput, Notification, Center, Loader, Box, useMantineColorScheme, Table, Switch, ScrollArea, UnstyledButton, useMantineTheme, Pagination } from '@mantine/core';
+import { Grid, Title, Card, Button, Group, Text, Stack, TextInput, Notification, Center, Loader, Box, useMantineColorScheme, Table, Switch, ScrollArea, UnstyledButton, useMantineTheme, Pagination } from '@mantine/core';
 import { IconPlus, IconCheck, IconX, IconCircleCheck, IconCircle } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TableActions } from '../components/ui/tableactions/TableActions';
@@ -28,9 +28,6 @@ interface CategoryWithSelection extends MiniatureCategory {
   isSelected: boolean;
 }
 
-// Form types
-type TypeForm = { name: string };
-type CategoryForm = { name: string; type_id: number };
 
 const openDeleteConfirmModal = (
   itemType: string,
@@ -58,6 +55,16 @@ export function ClassificationAdmin() {
   const theme = useMantineTheme();
   const [selectedType, setSelectedType] = useState<MiniatureType | null>(null);
 
+  // Add refresh effect
+  useEffect(() => {
+    // Refresh all data on mount
+    queryClient.invalidateQueries({ queryKey: ['miniature_types'] });
+    queryClient.invalidateQueries({ queryKey: ['all_categories'] });
+    if (selectedType) {
+      queryClient.invalidateQueries({ queryKey: ['miniature_categories', selectedType.id] });
+    }
+  }, []); // Only run on mount
+
   // Notification state
   const [notification, setNotification] = useState<{
     show: boolean;
@@ -78,7 +85,7 @@ export function ClassificationAdmin() {
 
   // Modal states
   const [editType, setEditType] = useState<MiniatureType | null>(null);
-  const [editCategory, setEditCategory] = useState<MiniatureCategory | null>(null);
+  const [] = useState<MiniatureCategory | null>(null);
   const [isAddingType, setIsAddingType] = useState(false);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -378,14 +385,6 @@ export function ClassificationAdmin() {
     }
   };
 
-  const handleCategorySubmit = () => {
-    if (!selectedType) return;
-    if (editCategory) {
-      // This block can be removed since we no longer support editing
-    } else {
-      // This block can be removed since we no longer support individual category creation
-    }
-  };
 
   // Check if type has categories
   const typeHasCategories = (typeId: number) => {

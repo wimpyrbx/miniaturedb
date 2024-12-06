@@ -4,8 +4,8 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Grid, Title, Card, Button, Group, Text, Stack, Table, Modal, TextInput, Notification, Center, Loader, Box, useMantineColorScheme, Switch, Pagination } from '@mantine/core';
-import { IconPlus, IconEdit, IconCheck, IconX, IconBuilding } from '@tabler/icons-react';
+import { Grid, Title, Card, Button, Group, Text, Stack, Table, TextInput, Notification, Center, Loader, Box, useMantineColorScheme, Switch, Pagination } from '@mantine/core';
+import { IconPlus, IconCheck, IconX, IconBuilding } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   getCompanies, getProductLines, getProductSetsByLine,
@@ -22,10 +22,6 @@ import { modals } from '@mantine/modals';
 import { DataTable } from '../components/ui/table/DataTable';
 import { AdminModal } from '../components/AdminModal';
 
-// Simple form types
-type CompanyForm = { name: string };
-type ProductLineForm = { name: string; company_id: number };
-type ProductSetForm = { name: string; product_line_id: number };
 
 const openDeleteConfirmModal = (
   itemType: string,
@@ -52,6 +48,18 @@ export function ProductAdmin() {
   const { colorScheme } = useMantineColorScheme();
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [selectedLine, setSelectedLine] = useState<ProductLine | null>(null);
+
+  // Add refresh effect
+  useEffect(() => {
+    // Refresh all data on mount
+    queryClient.invalidateQueries({ queryKey: ['companies'] });
+    if (selectedCompany) {
+      queryClient.invalidateQueries({ queryKey: ['productLines', selectedCompany.id] });
+      if (selectedLine) {
+        queryClient.invalidateQueries({ queryKey: ['productSets', selectedLine.id] });
+      }
+    }
+  }, []); // Only run on mount
 
   // Notification state
   const [notification, setNotification] = useState<{
@@ -245,7 +253,7 @@ export function ProductAdmin() {
         color: 'yellow'
       });
     },
-    onError: (error: any) => {
+    onError: () => {
       setNotification({
         show: true,
         title: 'Error',
@@ -268,7 +276,7 @@ export function ProductAdmin() {
         color: 'blue'
       });
     },
-    onError: (error: any) => {
+    onError: () => {
       setNotification({
         show: true,
         title: 'Error',
@@ -291,7 +299,7 @@ export function ProductAdmin() {
         color: 'blue'
       });
     },
-    onError: (error: any) => {
+    onError: () => {
       setNotification({
         show: true,
         title: 'Error',

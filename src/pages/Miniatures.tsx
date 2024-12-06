@@ -1,23 +1,16 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { useState } from 'react';
-import { Stack, Title, Text, Group, Card, Button, TextInput, MultiSelect, Select, Textarea, NumberInput, useMantineColorScheme, useMantineTheme, Radio, TagsInput, Badge, Center, Loader, SegmentedControl, Pagination, Box, Grid, Paper, UnstyledButton, ActionIcon, Table, MantineTheme, Combobox, useCombobox, InputBase, ScrollArea, Notification, SimpleGrid, List, AspectRatio } from '@mantine/core';
-import { DataTable } from '../components/ui/table/DataTable';
+import { Stack, Title, Text, Group, Card, Button, TextInput, Select, Textarea, NumberInput, useMantineColorScheme, TagsInput, Badge, Center, Loader, SegmentedControl, Pagination, Box, Grid, ActionIcon, Table, Combobox, useCombobox, InputBase, ScrollArea, Notification, SimpleGrid, List } from '@mantine/core';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { TableActions } from '../components/ui/tableactions/TableActions';
-import { IconEdit, IconPlus, IconPhoto, IconTable, IconLayoutGrid, IconLayoutList, IconSearch, IconPackage, IconTrash, IconX, IconCheck, IconPhotoUp, IconClock, IconUpload } from '@tabler/icons-react';
+import { IconPlus, IconPhoto, IconTable, IconLayoutGrid, IconLayoutList, IconSearch, IconTrash, IconX, IconCheck, IconClock, IconUpload } from '@tabler/icons-react';
 import { AdminModal } from '../components/AdminModal';
-import { getMiniatureImagePath, checkMiniatureImageStatus, uploadMiniatureImage, deleteMiniatureImage, ImageStatus } from '../utils/imageUtils';
+import { getMiniatureImagePath, checkMiniatureImageStatus, ImageStatus } from '../utils/imageUtils';
 import { modals } from '@mantine/modals';
-import { getProductSets } from '../api/productinfo/sets/get';
 import { badgeStyles, typeStyles } from '../utils/theme';
 import { updateSettings } from '../api/settings/update';
 import { getSettings } from '../api/settings/get';
 import debounce from 'lodash/debounce';
 
-interface Category {
-  id: number;
-  name: string;
-}
 
 interface MiniType {
   id: number;
@@ -29,12 +22,11 @@ interface MiniType {
   mini_count?: number;
 }
 
-interface Tag {
-  id: number;
-  name: string;
-}
 
 interface Mini {
+  purchased_at: any;
+  started_at: any;
+  completed_at: any;
   id: number;
   name: string;
   description: string | null;
@@ -46,6 +38,7 @@ interface Mini {
   base_size_id: number;
   product_set_id: number | null;
   types: Array<{
+    category_names: boolean;
     id: number;
     name: string;
     proxy_type: boolean;
@@ -84,11 +77,6 @@ interface ProductSet {
   mini_count?: number;
 }
 
-interface TableActionsProps {
-  elementType: 'icon';
-  onEdit: () => void;
-  onDelete?: () => void;
-}
 
 const MAX_PILLS = 3;
 
@@ -144,28 +132,12 @@ const PillsList = ({
   );
 };
 
-const ClassificationSection = ({ label, items, color, getItemColor }: { 
-  label: string, 
-  items: any[], 
-  color: string,
-  getItemColor?: (item: any) => string 
-}) => {
-  if (!items || items.length === 0) return null;
-  return (
-    <Group gap="xs" align="center">
-      <Text size="xs" fw={500} c="dimmed" style={{ textTransform: 'uppercase' }}>
-        {label}:
-      </Text>
-      <PillsList items={items} color={color} getItemColor={getItemColor} />
-    </Group>
-  );
-};
 
 type ViewType = 'table' | 'cards' | 'banner' | 'timeline';
 
 const ITEMS_PER_PAGE = 10;
 
-const TableView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp }: { 
+const TableView = ({ minis, onEdit, currentPage, imageTimestamp }: { 
   minis: Mini[], 
   onEdit: (mini: Mini) => void,
   currentPage: number,
@@ -349,7 +321,7 @@ const TableView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp }:
   );
 };
 
-const CardsView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp }: { 
+const CardsView = ({ minis, onEdit, currentPage, imageTimestamp }: { 
   minis: Mini[], 
   onEdit: (mini: Mini) => void,
   currentPage: number,
@@ -484,7 +456,7 @@ const CardsView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp }:
   );
 };
 
-const BannerView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp }: { 
+const BannerView = ({ minis, onEdit, currentPage, imageTimestamp }: { 
   minis: Mini[], 
   onEdit: (mini: Mini) => void,
   currentPage: number,
@@ -679,86 +651,6 @@ const BannerView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp }
   );
 };
 
-const GalleryView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp }: { 
-  minis: Mini[], 
-  onEdit: (mini: Mini) => void,
-  currentPage: number,
-  onPageChange: (page: number) => void,
-  imageTimestamp: number
-}) => {
-  const paginatedMinis = minis.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
-
-  return (
-    <SimpleGrid
-      cols={{ base: 2, sm: 3, md: 4, lg: 5 }}
-      spacing="md"
-    >
-      {paginatedMinis.map((mini) => (
-        <Paper
-          key={mini.id}
-          p="xs"
-          shadow="md"
-          radius="md"
-          onClick={() => onEdit(mini)}
-          style={{ 
-            cursor: 'pointer',
-            backgroundColor: 'var(--mantine-color-dark-6)',
-            transition: 'all 0.2s ease',
-            '&:hover': {
-              transform: 'translateY(-5px)',
-              boxShadow: 'var(--mantine-shadow-lg)'
-            }
-          }}
-        >
-          <AspectRatio ratio={1}>
-            {mini.imageStatus?.hasOriginal ? (
-              <img
-                src={getMiniatureImagePath(mini.id, 'original', mini.imageTimestamp || imageTimestamp)}
-                alt={mini.name}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'contain',
-                  borderRadius: 'var(--mantine-radius-sm)'
-                }}
-              />
-            ) : (
-              <Center style={{ backgroundColor: 'var(--mantine-color-dark-4)', borderRadius: 'var(--mantine-radius-sm)' }}>
-                <IconPhoto size={32} style={{ opacity: 0.5 }} />
-              </Center>
-            )}
-          </AspectRatio>
-          <Stack gap={4} mt="xs">
-            <Text size="sm" fw={500} lineClamp={1}>{mini.name}</Text>
-            {mini.types && mini.types.length > 0 && (
-              <Group gap={4} wrap="nowrap">
-                {mini.types.map((type, index) => (
-                  <Badge
-                    key={type.id}
-                    size="xs"
-                    variant={!type.proxy_type ? typeStyles.main.variant : typeStyles.proxy.variant}
-                    color={!type.proxy_type ? typeStyles.main.color : typeStyles.proxy.color}
-                    style={{
-                      opacity: !type.proxy_type ? typeStyles.main.opacity : typeStyles.proxy.opacity,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}
-                  >
-                    {type.name}
-                  </Badge>
-                ))}
-              </Group>
-            )}
-          </Stack>
-        </Paper>
-      ))}
-    </SimpleGrid>
-  );
-};
 
 const TimelineView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp }: {
   minis: Mini[],
@@ -767,8 +659,7 @@ const TimelineView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp
   onPageChange: (page: number) => void,
   imageTimestamp: number
 }) => {
-  const theme = useMantineTheme();
-  const { colorScheme } = useMantineColorScheme();
+  useMantineColorScheme();
 
   // Generate random scale origins for each mini
   const scaleOrigins = useMemo(() => 
@@ -800,17 +691,6 @@ const TimelineView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp
   }, [sortedMinis]);
 
   // Paginate the grouped minis
-  const paginatedMinis = useMemo(() => {
-    const allMinis = [
-      ...groupedMinis.last24h,
-      ...groupedMinis.thisMonth,
-      ...groupedMinis.older
-    ];
-    return allMinis.slice(
-      (currentPage - 1) * ITEMS_PER_PAGE,
-      currentPage * ITEMS_PER_PAGE
-    );
-  }, [groupedMinis, currentPage]);
 
   return (
     <Stack>
@@ -1387,16 +1267,15 @@ interface MiniatureModalProps {
   onImageUpdate?: (timestamp: number) => void;
 }
 
-const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: MiniatureModalProps) => {
+const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => {
   const queryClient = useQueryClient();
-  const { colorScheme } = useMantineColorScheme();
+  useMantineColorScheme();
   const [formData, setFormData] = useState<Mini | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageStatus, setImageStatus] = useState<ImageStatus>({ hasOriginal: false, hasThumb: false });
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [isDeletingImage, setIsDeletingImage] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [] = useState<ImageStatus>({ hasOriginal: false, hasThumb: false });
+  const [] = useState(false);
+  const [] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1407,7 +1286,7 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
     color: string;
   }>({ show: false, title: '', message: '', color: 'blue' });
   const [isImageLoading, setIsImageLoading] = useState(false);
-  const [imageTimestamp, setImageTimestamp] = useState(Date.now());
+  const [] = useState(Date.now());
   const [pendingImageUpload, setPendingImageUpload] = useState<File | null>(null);
   // Add state for animation
   const [showImage, setShowImage] = useState(false);
@@ -1486,6 +1365,9 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
           company_name: null,
           imageStatus: { hasOriginal: false, hasThumb: false },
           imageTimestamp: Date.now(),
+          purchased_at: null,
+          started_at: null,
+          completed_at: null,
           created_at: now,
           updated_at: now
         });
@@ -1559,9 +1441,8 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
             tags: formData.tags
           }),
         });
-
         // Invalidate queries to refresh data
-        queryClient.invalidateQueries(['minis']);
+        queryClient.invalidateQueries({ queryKey: ['minis'] });
       } else {
         // Logic for adding a new miniature
         const newMiniatureData = {
@@ -1733,24 +1614,6 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
   });
 
   // Add tags mutation
-  const updateTagsMutation = useMutation({
-    mutationFn: async ({ miniId, tags }: { miniId: number, tags: Array<{ id: number, name: string }> }) => {
-      const response = await fetch(`/api/minis/${miniId}/tags`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ tags }),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to update tags');
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['miniatures'] });
-    }
-  });
 
   // Query for all available types
   const { data: availableTypes } = useQuery({
@@ -1778,11 +1641,11 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
   const filteredTypes = useMemo(() => {
     if (!availableTypes || !typeSearchValue) return [];
     return availableTypes
-      .filter((type: MiniType) => 
+      .filter((type: { category_names: boolean; id: number; name: string; proxy_type: boolean }) => 
         type.name.toLowerCase().includes(typeSearchValue.toLowerCase()) &&
-        !formData?.types?.some((t: MiniType) => t.id === type.id)
+        !formData?.types?.some((t: { id: number }) => t.id === type.id)
       )
-      .sort((a: MiniType, b: MiniType) => a.name.localeCompare(b.name));
+      .sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name));
   }, [availableTypes, typeSearchValue, formData?.types]);
 
   // Handle adding a type
@@ -1790,21 +1653,19 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
     setFormData(prev => {
       if (!prev) return null;
       
-      // If it's the only type, set it as main
-      const isOnlyType = !prev.types || prev.types.length === 0;
-      
       const newType = {
         id: typeToAdd.id,
         name: typeToAdd.name,
-        proxy_type: !isOnlyType // false if it's the only type, true otherwise
+        proxy_type: prev.types.length > 0, // false if it's the first type
+        category_names: false // Set as boolean instead of array
       };
 
       return {
         ...prev,
-        types: [...(prev.types || []), newType]
+        types: [...prev.types, newType]
       };
     });
-    setTypeSearchValue(''); // Clear search after adding
+    setTypeSearchValue('');
   };
 
   // Handle removing a type
@@ -1882,106 +1743,7 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
   }, [notification.show]);
 
   // Update the validateImageRatio function
-  const validateImageRatio = async (file: File): Promise<boolean> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.src = URL.createObjectURL(file);
-      
-      img.onload = () => {
-        const aspectRatio = img.width / img.height;
-        if (Math.abs(aspectRatio - 1) > 0.02) {  // Allow only 2% deviation from square
-          setNotification({
-            show: true,
-            title: 'Error',
-            message: 'Only square images are allowed. Please crop your image to a 1:1 ratio.',
-            color: 'red'
-          });
-          reject(new Error('Image must be square'));
-        }
-        resolve(true);
-      };
-      
-      img.onerror = () => {
-        setNotification({
-          show: true,
-          title: 'Error',
-          message: 'Failed to load image',
-          color: 'red'
-        });
-        reject(new Error('Failed to load image'));
-      };
-    });
-  };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !formData?.id) return;
-
-    // Store current state in case we need to revert
-    const previousImageStatus = { ...imageStatus };
-    const previousPreview = imagePreview;
-
-    try {
-      await validateImageRatio(file);
-      // Set preview immediately after validation succeeds
-      const previewUrl = URL.createObjectURL(file);
-      setImagePreview(previewUrl);
-      
-      setIsUploadingImage(true);
-      const success = await uploadMiniatureImage(formData.id, file);
-      if (success) {
-        const newStatus = await checkMiniatureImageStatus(formData.id);
-        setImageStatus(newStatus);
-        const newTimestamp = Date.now();
-        if (onImageUpdate) {
-          onImageUpdate(newTimestamp);
-        }
-        
-        // Update the cache with the new timestamp
-        queryClient.setQueryData(['minis'], (oldData: any) => {
-          if (!Array.isArray(oldData)) return oldData;
-          return oldData.map((mini: Mini) =>
-            mini.id === formData.id
-              ? { 
-                  ...mini, 
-                  imageStatus: newStatus,
-                  imageTimestamp: newTimestamp 
-                }
-              : mini
-          );
-        });
-
-        setNotification({
-          show: true,
-          title: 'Success',
-          message: 'Image uploaded successfully',
-          color: 'green'
-        });
-      } else {
-        // Revert to previous state on upload failure
-        setImagePreview(previousPreview);
-        setImageStatus(previousImageStatus);
-        throw new Error('Failed to upload image');
-      }
-    } catch (error) {
-      // Revert to previous state on any error
-      setImagePreview(previousPreview);
-      setImageStatus(previousImageStatus);
-      if (error instanceof Error && error.message !== 'Image must be square') {
-        setNotification({
-          show: true,
-          title: 'Error',
-          message: 'Failed to upload image',
-          color: 'red'
-        });
-      }
-    } finally {
-      setIsUploadingImage(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
 
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -2022,63 +1784,8 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
     e.currentTarget.style.backgroundColor = 'var(--mantine-color-dark-5)';
   };
 
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.currentTarget.style.borderColor = 'var(--mantine-color-dark-3)';
-    e.currentTarget.style.backgroundColor = 'var(--mantine-color-dark-4)';
-  };
 
   // Update the handleImageDelete function
-  const handleImageDelete = async () => {
-    if (!formData?.id) return;
-
-    // Show confirmation modal
-    modals.openConfirmModal({
-      title: 'Delete Image',
-      children: (
-        <Text size="sm">
-          Are you sure you want to delete this image? This action cannot be undone.
-        </Text>
-      ),
-      labels: { confirm: 'Delete', cancel: 'Cancel' },
-      confirmProps: { color: 'red' },
-      onConfirm: async () => {
-        setIsDeletingImage(true);
-        try {
-          await deleteMiniatureImage(formData.id);
-          // Clear both preview and status
-          setImagePreview(null);
-          setImageStatus({ hasOriginal: false, hasThumb: false });
-          
-          // Update the cache to reflect the image deletion
-          queryClient.setQueryData(['minis'], (oldData: any) => {
-            if (!Array.isArray(oldData)) return oldData;
-            return oldData.map((mini: Mini) =>
-              mini.id === formData.id
-                ? { ...mini, imageStatus: { hasOriginal: false, hasThumb: false } }
-                : mini
-            );
-          });
-
-          setNotification({
-            show: true,
-            title: 'Success',
-            message: 'Image deleted successfully',
-            color: 'green'
-          });
-        } catch (error) {
-          setNotification({
-            show: true,
-            title: 'Error',
-            message: 'Failed to delete image',
-            color: 'red'
-          });
-        } finally {
-          setIsDeletingImage(false);
-        }
-      }
-    });
-  };
 
   // Add an effect to refetch data when modal closes
   useEffect(() => {
@@ -2094,7 +1801,12 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
         method: 'DELETE',
         credentials: 'include'
       });
-      if (!response.ok) throw new Error('Failed to delete miniature');
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete miniature');
+      }
+      
       return response.json();
     },
     onSuccess: () => {
@@ -2107,6 +1819,11 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
     },
     onError: (error) => {
       console.error('Error deleting miniature:', error);
+      notifications.show({
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Failed to delete miniature',
+        color: 'red'
+      });
     }
   });
 
@@ -2414,7 +2131,7 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
                   <Combobox
                     store={combobox}
                     onOptionSubmit={(val) => {
-                      const selectedType = availableTypes?.find(t => t.id.toString() === val);
+                      const selectedType = availableTypes?.find((t: { id: number }) => t.id.toString() === val);
                       if (selectedType) {
                         handleAddType(selectedType);
                         combobox.closeDropdown();
@@ -2504,9 +2221,9 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
                                 >
                                   <Stack gap={2}>
                                     <Text c="primary">{type.name}</Text>
-                                    {type.category_names && type.category_names.length > 0 && (
+                                    {type.category_names && Array.isArray(type.category_names) && type.category_names.length > 0 && (
                                       <Group gap={0} wrap="wrap">
-                                        {type.category_names.map((category, idx) => (
+                                        {type.category_names.map((category: string, idx: number) => (
                                           <Badge 
                                             key={idx} 
                                             size="xs" 
@@ -2652,8 +2369,7 @@ const MiniatureModal = ({ opened, onClose, miniature, onImageUpdate }: Miniature
 };
 
 export default function Miniatures() {
-  const queryClient = useQueryClient();
-  const { colorScheme } = useMantineColorScheme();
+  useMantineColorScheme();
   const [editingMini, setEditingMini] = useState<Mini | null>(null);
   const [isAddingMini, setIsAddingMini] = useState(false);
   const [viewType, setViewType] = useState<ViewType>('table');
@@ -2769,7 +2485,7 @@ export default function Miniatures() {
       
       // Check image status for all minis
       const minisWithImageStatus = await Promise.all(
-        minis.map(async (mini) => {
+        minis.map(async (mini: Mini) => {
           const imageStatus = await checkMiniatureImageStatus(mini.id);
           return { ...mini, imageStatus };
         })

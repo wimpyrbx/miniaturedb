@@ -234,7 +234,7 @@ app.delete('/api/productinfo/lines/:id', requireAuth, (req, res) => {
 });
 
 // Product Sets
-app.get('/api/productinfo/sets', requireAuth, (req, res) => {
+app.get('/api/productinfo/sets', requireAuth, (_req, res) => {
   try {
     const sets = getMinisDb().prepare(`
       SELECT 
@@ -472,10 +472,11 @@ app.get('/api/classification/types', requireAuth, (_req, res) => {
       ORDER BY mt.name
     `).all() as MiniType[];
 
-    // Parse JSON arrays
+    // Parse JSON arrays and mini_ids
     types.forEach(type => {
-      type.categories = JSON.parse(type.categories).filter((id: number | null) => id !== null);
-      type.category_names = JSON.parse(type.category_names).filter((name: string | null) => name !== null);
+      type.categories = type.categories ? JSON.parse(type.categories as unknown as string).filter((id: number | null) => id !== null) : [];
+      type.category_names = type.category_names ? JSON.parse(type.category_names as unknown as string).filter((name: string | null) => name !== null) : [];
+      type.mini_ids = type.mini_ids ? JSON.parse(type.mini_ids as string).filter((id: number | null) => id !== null) : [];
     });
 
     res.json(types);
@@ -712,6 +713,7 @@ interface Tag {
 }
 
 interface MiniType {
+  mini_ids: any;
   id: number;
   name: string;
   proxy_type: boolean;
@@ -921,9 +923,9 @@ app.put('/api/minis/:id/tags', requireAuth, (req, res) => {
         GROUP BY m.id
       `).get(miniId, miniId) as Mini;
     });
-    
     const updatedMini = updateTags(parseInt(id), tags);
-    updatedMini.tags = JSON.parse(updatedMini.tags).filter((t: any) => t.id !== null);
+    const parsedTags = JSON.parse(updatedMini.tags as unknown as string);
+    updatedMini.tags = parsedTags.filter((t: {id: number | null}) => t.id !== null);
     
     res.json(updatedMini);
   } catch (error) {
@@ -958,9 +960,9 @@ app.put('/api/minis/:id/type', requireAuth, (req, res) => {
         GROUP BY m.id
       `).get(miniId) as Mini;
     });
-    
     const updatedMini = updateType(parseInt(id), typeId);
-    updatedMini.types = JSON.parse(updatedMini.types).filter((id: number | null) => id !== null);
+    const parsedTypes = JSON.parse(updatedMini.types as unknown as string);
+    updatedMini.types = parsedTypes.filter((id: number | null) => id !== null);
     
     res.json(updatedMini);
   } catch (error) {
@@ -1218,11 +1220,10 @@ app.get('/api/miniatures', requireAuth, (_req, res) => {
     res.status(500).json({ error: 'Failed to fetch minis' });
   }
 });
-
 // Delete miniature and all associated data
-app.delete('/api/minis/:id', requireAuth, async (req, res) => {
+app.delete('/api/minis/:id', requireAuth, async (req, res): Promise<void> => {
   const { id } = req.params;
-  const db = req.app.locals.minisDb;
+  const db = getMinisDb();
 
   try {
     // Start a transaction
@@ -1238,24 +1239,26 @@ app.delete('/api/minis/:id', requireAuth, async (req, res) => {
       
       if (result.changes === 0) {
         db.prepare('ROLLBACK').run();
-        return res.status(404).json({ error: 'Miniature not found' });
+        res.status(404).json({ error: 'Miniature not found' });
+        return;
       }
 
       // Delete associated images
-      const firstDigit = id[0];
-      const secondDigit = id.length > 1 ? id[1] : '0';
-      const imagePath = path.join('public', 'images', 'miniatures');
+      const { originalPath, thumbPath } = getImagePaths(parseInt(id));
       
-      // Delete original image
-      const originalPath = path.join(imagePath, 'original', firstDigit, secondDigit, `${id}.webp`);
-      if (fs.existsSync(originalPath)) {
-        fs.unlinkSync(originalPath);
-      }
-      
-      // Delete thumbnail
-      const thumbPath = path.join(imagePath, 'thumb', firstDigit, secondDigit, `${id}.webp`);
-      if (fs.existsSync(thumbPath)) {
-        fs.unlinkSync(thumbPath);
+      try {
+        // Delete original image if it exists
+        if (fs.existsSync(originalPath)) {
+          fs.unlinkSync(originalPath);
+        }
+        
+        // Delete thumbnail if it exists
+        if (fs.existsSync(thumbPath)) {
+          fs.unlinkSync(thumbPath);
+        }
+      } catch (imageError) {
+        console.error('Error deleting images:', imageError);
+        // Continue with transaction even if image deletion fails
       }
 
       // Commit the transaction

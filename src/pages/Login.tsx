@@ -35,87 +35,73 @@ const defaultBackgrounds = [
 ];
 
 // Ken Burns animations with slower movement
-const kenBurnsAnimations = [
-  {
-    className: 'kenburns1',
-    style: 'animation: kenburns1 60s ease-in-out infinite alternate'
-  },
-  {
-    className: 'kenburns2',
-    style: 'animation: kenburns2 55s ease-in-out infinite alternate'
-  },
-  {
-    className: 'kenburns3',
-    style: 'animation: kenburns3 65s ease-in-out infinite alternate'
-  }
-];
 
 export function Login({ onLogin }: { onLogin: () => void }) {
+  // Create a unique ID for this component instance
+
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [currentBgIndex, setCurrentBgIndex] = useState(0);
-  const [backgrounds, setBackgrounds] = useState<string[]>([]);
-  const [currentAnimation] = useState(() => 
-    kenBurnsAnimations[Math.floor(Math.random() * kenBurnsAnimations.length)]
-  );
-  const [imagesLoaded, setImagesLoaded] = useState<boolean[]>([]);
+  const [imagesLoaded, setImagesLoaded] = useState<{ [key: number]: boolean }>({});
+  const [currentAnimation, setCurrentAnimation] = useState<{ className: string }>({ className: 'kenburns1' });
   const navigate = useNavigate();
 
-  // Initialize with just the first background
   useEffect(() => {
-    const shuffled = [...defaultBackgrounds].sort(() => Math.random() - 0.5);
-    setBackgrounds([shuffled[0]]); // Start with just one image
-    setImagesLoaded(new Array(defaultBackgrounds.length).fill(false));
-    
-    // Lazy load the rest of the images
-    const preloadImages = async () => {
-      const newImages = [...shuffled];
-      for (let i = 1; i < newImages.length; i++) {
+    const loadImage = (src: string) => {
+      return new Promise((resolve, reject) => {
         const img = new Image();
-        img.src = newImages[i];
-        await new Promise((resolve) => {
-          img.onload = () => {
-            setImagesLoaded(prev => {
-              const updated = [...prev];
-              updated[i] = true;
-              return updated;
-            });
-            resolve(null);
-          };
-        });
-        setBackgrounds(prev => [...prev, newImages[i]]);
-      }
+        img.onload = () => {
+          resolve(img);
+        };
+        img.onerror = reject;
+        img.src = src;
+      });
     };
 
-    preloadImages();
+    // Preload all background images
+    Promise.all(defaultBackgrounds.map(src => loadImage(src)))
+      .then(() => {
+        setImagesLoaded(prev => ({
+          ...prev,
+          [currentBgIndex]: true
+        }));
+      })
+      .catch(() => {
+        // Silently handle error
+      });
+
+    // Background rotation interval
+    const intervalId = setInterval(() => {
+      setCurrentBgIndex(prevIndex => {
+        const newIndex = (prevIndex + 1) % defaultBackgrounds.length;
+        return newIndex;
+      });
+      setCurrentAnimation(prevAnimation => ({
+        className: prevAnimation.className === 'kenburns1' ? 'kenburns2' : 
+                  prevAnimation.className === 'kenburns2' ? 'kenburns3' : 'kenburns1'
+      }));
+    }, 10000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
   }, []);
-
-  // Only start background rotation after at least 2 images are loaded
-  useEffect(() => {
-    if (backgrounds.length < 2) return;
-
-    const interval = setInterval(() => {
-      setCurrentBgIndex((prev) => (prev + 1) % backgrounds.length);
-    }, 8000);
-
-    return () => clearInterval(interval);
-  }, [backgrounds.length]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     setError('');
-    setIsLoading(true);
 
     try {
       await login({ username, password });
       onLogin();
       navigate('/');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Invalid username or password');
+      setError(err.response?.data?.error || 'An error occurred during login');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
@@ -141,9 +127,9 @@ export function Login({ onLogin }: { onLogin: () => void }) {
         `}
       </style>
       <Box pos="relative" mih="100vh" style={{ display: 'flex', alignItems: 'center', background: '#1a1b1e', overflow: 'hidden' }}>
-        {backgrounds.length > 0 && (
+        {Object.keys(imagesLoaded).length > 0 && (
           <BackgroundImage 
-            src={backgrounds[currentBgIndex]}
+            src={defaultBackgrounds[currentBgIndex]}
             className={currentAnimation.className}
             style={{ 
               position: 'absolute',
@@ -248,7 +234,7 @@ export function Login({ onLogin }: { onLogin: () => void }) {
                 <Button 
                   fullWidth 
                   type="submit" 
-                  loading={isLoading}
+                  loading={loading}
                   variant="filled"
                   color="gray.6"
                   size="md"
