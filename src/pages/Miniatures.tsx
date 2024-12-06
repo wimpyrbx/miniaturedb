@@ -10,6 +10,7 @@ import { badgeStyles, typeStyles } from '../utils/theme';
 import { updateSettings } from '../api/settings/update';
 import { getSettings } from '../api/settings/get';
 import debounce from 'lodash/debounce';
+import { notifications } from '@mantine/notifications';
 
 
 interface MiniType {
@@ -162,7 +163,8 @@ const TableView = ({ minis, onEdit, currentPage, imageTimestamp }: {
         <Table.Tr>
           <Table.Th style={{ width: '60px' }}></Table.Th>
           <Table.Th>Miniature Info</Table.Th>
-          <Table.Th>Classification</Table.Th>
+          <Table.Th>Types & Categories</Table.Th>
+          <Table.Th>Tags</Table.Th>
           <Table.Th>Product</Table.Th>
           <Table.Th>Storage</Table.Th>
         </Table.Tr>
@@ -238,25 +240,41 @@ const TableView = ({ minis, onEdit, currentPage, imageTimestamp }: {
               </Stack>
             </Table.Td>
 
-            {/* Classification Column */}
+            {/* Types & Categories Column */}
             <Table.Td>
               <Stack gap={8}>
                 {/* Main Types */}
                 {mini.types.filter(type => !type.proxy_type).length > 0 && (
-                  <Group gap={4}>
-                    {mini.types
-                      .filter(type => !type.proxy_type)
-                      .map(type => (
-                        <Badge 
-                          key={type.id} 
-                          size="sm"
-                          variant="filled"
-                          color="teal"
-                        >
-                          {type.name}
-                        </Badge>
-                      ))}
-                  </Group>
+                  <Stack gap={4}>
+                    <Group gap={4}>
+                      {mini.types
+                        .filter(type => !type.proxy_type)
+                        .map(type => (
+                          <Badge 
+                            key={type.id} 
+                            size="sm"
+                            variant="filled"
+                            color="teal"
+                          >
+                            {type.name}
+                          </Badge>
+                        ))}
+                    </Group>
+                    {mini.category_names && mini.category_names.length > 0 && (
+                      <Group gap={4}>
+                        {mini.category_names.map((category, index) => (
+                          <Badge
+                            key={index}
+                            size="xs"
+                            variant="light"
+                            color="grape"
+                          >
+                            {category}
+                          </Badge>
+                        ))}
+                      </Group>
+                    )}
+                  </Stack>
                 )}
                 
                 {/* Proxy Types */}
@@ -276,23 +294,25 @@ const TableView = ({ minis, onEdit, currentPage, imageTimestamp }: {
                       ))}
                   </Group>
                 )}
-
-                {/* Tags */}
-                {mini.tags && mini.tags.length > 0 && (
-                  <Group gap={4}>
-                    {mini.tags.map(tag => (
-                      <Badge 
-                        key={tag.id} 
-                        size="xs" 
-                        variant="dot"
-                        color="blue"
-                      >
-                        {tag.name}
-                      </Badge>
-                    ))}
-                  </Group>
-                )}
               </Stack>
+            </Table.Td>
+
+            {/* Tags Column */}
+            <Table.Td>
+              {mini.tags && mini.tags.length > 0 && (
+                <Group gap={4}>
+                  {mini.tags.map(tag => (
+                    <Badge 
+                      key={tag.id} 
+                      size="xs" 
+                      variant="light"
+                      color="blue"
+                    >
+                      {tag.name.replace(/^[^:]+:\s*/, '')}
+                    </Badge>
+                  ))}
+                </Group>
+              )}
             </Table.Td>
 
             {/* Product Column */}

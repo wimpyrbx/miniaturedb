@@ -97,6 +97,30 @@ const FloatingDiv = ({ onClose }: FloatingDivProps) => {
   const [useGradient] = useState(false);
   const [currentTheme, setCurrentTheme] = useState(themes[0]);
 
+  // Store original styles in a ref to maintain latest values
+  const originalStyles = useMemo(() => {
+    const computedStyle = window.getComputedStyle(document.body);
+    return {
+      background: computedStyle.background,
+      color: computedStyle.color
+    };
+  }, []);
+
+  // Cleanup function to restore original styles
+  useEffect(() => {
+    return () => {
+      document.body.style.background = originalStyles.background;
+      document.body.style.color = originalStyles.color;
+      
+      // Also reset any navbar styles
+      const navbar = document.querySelector('.mantine-AppShell-navbar');
+      if (navbar) {
+        (navbar as HTMLElement).style.removeProperty('background');
+        (navbar as HTMLElement).style.removeProperty('color');
+      }
+    };
+  }, [originalStyles]);
+
   // Load initial settings only once
   useEffect(() => {
     const loadInitialSettings = async () => {
