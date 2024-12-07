@@ -1428,8 +1428,39 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
             tags: formData.tags
           }),
         });
-        // Invalidate queries to refresh data
-        queryClient.invalidateQueries({ queryKey: ['minis'] });
+        
+        // After successful updates, update the cache directly
+        queryClient.setQueryData(['minis'], (oldData: Mini[] | undefined) => {
+          if (!oldData) return oldData;
+          return oldData.map(mini => 
+            mini.id === formData.id 
+              ? {
+                  ...mini,
+                  ...basicData,
+                  types: formData.types,
+                  tags: formData.tags,
+                  updated_at: new Date().toISOString()
+                }
+              : mini
+          );
+        });
+
+        // Optional: Invalidate in background for eventual consistency
+        queryClient.invalidateQueries({ 
+          queryKey: ['minis'],
+          exact: true,
+          refetchType: 'none' // Prevent immediate refetch
+        });
+
+        setNotification({
+          show: true,
+          title: 'Success',
+          message: 'Miniature updated successfully',
+          color: 'green'
+        });
+
+        // Close the modal
+        onClose();
       } else {
         // Logic for adding a new miniature
         const newMiniatureData = {
@@ -1624,15 +1655,15 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
     }
   });
 
-  // Filter available types based on search
+  // Fix the filtered types logic
   const filteredTypes = useMemo(() => {
     if (!availableTypes || !typeSearchValue) return [];
     return availableTypes
-      .filter((type: { category_names: boolean; id: number; name: string; proxy_type: boolean }) => 
+      .filter((type: MiniType) => 
         type.name.toLowerCase().includes(typeSearchValue.toLowerCase()) &&
         !formData?.types?.some((t: { id: number }) => t.id === type.id)
       )
-      .sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name));
+      .sort((a: MiniType, b: MiniType) => a.name.localeCompare(b.name));
   }, [availableTypes, typeSearchValue, formData?.types]);
 
   // Handle adding a type
@@ -2613,9 +2644,9 @@ export default function Miniatures() {
             onChange={(event) => setFilterText(event.currentTarget.value)}
             style={{ 
               marginBottom: theme.spacing.md,
-              backgroundColor: theme.colorScheme === 'dark' ? theme.colors.dark[7] : theme.white,
+              backgroundColor: theme.colors.dark[7],
               '&:focus': {
-                backgroundColor: theme.colorScheme === 'dark' ? theme.colors.dark[7] : theme.white,
+                backgroundColor: theme.colors.dark[7],
               }
             }}
           />
