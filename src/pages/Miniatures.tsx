@@ -1246,31 +1246,20 @@ interface MiniatureModalProps {
   opened: boolean;
   onClose: () => void;
   miniature: Mini | null;
-  onImageUpdate?: (timestamp: number) => void;
+  onNotification: (notification: { title: string; message: string; color: string; }) => void;
 }
 
-const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => {
+const MiniatureModal = ({ opened, onClose, miniature, onNotification }: MiniatureModalProps) => {
   const queryClient = useQueryClient();
-  useMantineColorScheme();
+  const { colorScheme } = useMantineColorScheme();
   const [formData, setFormData] = useState<Mini | null>(null);
-  const [] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [] = useState<ImageStatus>({ hasOriginal: false, hasThumb: false });
-  const [] = useState(false);
-  const [] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [notification, setNotification] = useState<{
-    show: boolean;
-    title: string;
-    message: string;
-    color: string;
-  }>({ show: false, title: '', message: '', color: 'blue' });
   const [isImageLoading, setIsImageLoading] = useState(false);
-  const [] = useState(Date.now());
   const [pendingImageUpload, setPendingImageUpload] = useState<File | null>(null);
-  // Add state for animation
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showImage, setShowImage] = useState(false);
 
   // Validate name field
@@ -1399,6 +1388,41 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
           throw new Error('Failed to update miniature');
         }
 
+        // Handle image upload for existing miniature if there's a pending upload
+        if (pendingImageUpload) {
+          const imageFormData = new FormData();
+          imageFormData.append('image', pendingImageUpload);
+
+          const imageResponse = await fetch(`/api/minis/${miniature.id}/image`, {
+            method: 'POST',
+            credentials: 'include',
+            body: imageFormData,
+          });
+
+          if (!imageResponse.ok) {
+            console.error('Failed to upload image:', await imageResponse.text());
+            onNotification({
+              title: 'Warning',
+              message: 'Miniature was updated but image upload failed',
+              color: 'yellow'
+            });
+          } else {
+            // Update the cache with new image status
+            queryClient.setQueryData(['minis'], (oldData: Mini[] | undefined) => {
+              if (!oldData) return oldData;
+              return oldData.map(mini => 
+                mini.id === miniature.id 
+                  ? {
+                      ...mini,
+                      imageStatus: { hasOriginal: true, hasThumb: true },
+                      imageTimestamp: Date.now()
+                    }
+                  : mini
+              );
+            });
+          }
+        }
+
         // Update types
         await fetch(`/api/minis/${formData.id}/types`, {
           method: 'PUT',
@@ -1447,8 +1471,7 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
           refetchType: 'none' // Prevent immediate refetch
         });
 
-        setNotification({
-          show: true,
+        onNotification({
           title: 'Success',
           message: 'Miniature updated successfully',
           color: 'green'
@@ -1497,8 +1520,7 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
           
           // Handle unauthorized error specifically
           if (response.status === 401) {
-            setNotification({
-              show: true,
+            onNotification({
               title: 'Error',
               message: 'You need to be logged in to add miniatures',
               color: 'red'
@@ -1514,19 +1536,18 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
 
         // If we have a pending image upload, handle it now
         if (pendingImageUpload) {
-          const formData = new FormData();
-          formData.append('image', pendingImageUpload);
+          const imageFormData = new FormData();
+          imageFormData.append('image', pendingImageUpload);
 
           const imageResponse = await fetch(`/api/minis/${addedMiniature.id}/image`, {
             method: 'POST',
             credentials: 'include',
-            body: formData,
+            body: imageFormData,
           });
 
           if (!imageResponse.ok) {
             console.error('Failed to upload image:', await imageResponse.text());
-            setNotification({
-              show: true,
+            onNotification({
               title: 'Warning',
               message: 'Miniature was created but image upload failed',
               color: 'yellow'
@@ -1541,8 +1562,7 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
         setPendingImageUpload(null);
         setImagePreview(null);
         
-        setNotification({
-          show: true,
+        onNotification({
           title: 'Success',
           message: 'Miniature added successfully',
           color: 'green'
@@ -1552,8 +1572,7 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
       }
     } catch (error) {
       console.error('Error handling miniature:', error);
-      setNotification({
-        show: true,
+      onNotification({
         title: 'Error',
         message: error instanceof Error ? error.message : 'Failed to save miniature',
         color: 'red'
@@ -1745,18 +1764,56 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
     enabled: !!formData?.types?.length
   });
 
-  // Add this effect for auto-hiding notifications
-  useEffect(() => {
-    if (notification.show) {
-      const timer = setTimeout(() => {
-        setNotification(prev => ({ ...prev, show: false }));
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [notification.show]);
-
   // Update the validateImageRatio function
 
+  const validateImageRatio = (file: File): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const ratio = img.width / img.height;
+        URL.revokeObjectURL(img.src); // Clean up
+        resolve(Math.abs(ratio - 1) < 0.01); // Allow for small rounding errors
+      };
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  const handleImageSelect = async (file: File) => {
+    if (!file) return;
+
+    // Check if it's an image
+    if (!file.type.startsWith('image/')) {
+      onNotification({
+        title: 'Error',
+        message: 'Please select an image file',
+        color: 'red'
+      });
+      return;
+    }
+
+    // Validate image ratio
+    const isValidRatio = await validateImageRatio(file);
+    if (!isValidRatio) {
+      onNotification({
+        title: 'Error',
+        message: 'Please select a square image (1:1 ratio)',
+        color: 'red'
+      });
+      return;
+    }
+
+    // Store the file for upload when the form is submitted
+    setPendingImageUpload(file);
+
+    // Show preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        setImagePreview(e.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -1767,10 +1824,20 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
 
     // Check if it's an image
     if (!file.type.startsWith('image/')) {
-      setNotification({
-        show: true,
+      onNotification({
         title: 'Error',
         message: 'Please drop an image file',
+        color: 'red'
+      });
+      return;
+    }
+
+    // Validate image ratio
+    const isValidRatio = await validateImageRatio(file);
+    if (!isValidRatio) {
+      onNotification({
+        title: 'Error',
+        message: 'Please drop a square image (1:1 ratio)',
         color: 'red'
       });
       return;
@@ -1832,7 +1899,7 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
     },
     onError: (error) => {
       console.error('Error deleting miniature:', error);
-      notifications.show({
+      onNotification({
         title: 'Error',
         message: error instanceof Error ? error.message : 'Failed to delete miniature',
         color: 'red'
@@ -1924,6 +1991,65 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
     willChange: 'opacity, transform'
   } as const;
 
+  const handleImageDelete = async () => {
+    try {
+      const response = await fetch(`/api/minis/${formData!.id}/image`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (!response.ok) throw new Error('Failed to delete image');
+      
+      // Update the form data
+      setFormData(prev => prev ? {
+        ...prev,
+        imageStatus: { hasOriginal: false, hasThumb: false },
+        imageTimestamp: Date.now()
+      } : null);
+
+      // Update the cache directly for both table and card views
+      queryClient.setQueriesData({ queryKey: ['minis'] }, (oldData: any) => {
+        if (!oldData) return oldData;
+        return oldData.map((mini: Mini) => 
+          mini.id === formData!.id 
+            ? {
+                ...mini,
+                imageStatus: { hasOriginal: false, hasThumb: false },
+                imageTimestamp: Date.now()
+              }
+            : mini
+        );
+      });
+
+      onNotification({
+        title: 'Success',
+        message: 'Image deleted successfully',
+        color: 'green'
+      });
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      onNotification({
+        title: 'Error',
+        message: 'Failed to delete image',
+        color: 'red'
+      });
+    }
+  };
+
+  const openDeleteImageConfirm = () => {
+    modals.openConfirmModal({
+      title: 'Delete Image',
+      centered: true,
+      children: (
+        <Text size="sm">
+          Are you sure you want to delete this image? This action cannot be undone.
+        </Text>
+      ),
+      labels: { confirm: 'Delete', cancel: 'Cancel' },
+      confirmProps: { color: 'red' },
+      onConfirm: handleImageDelete
+    });
+  };
+
   return (
     <AdminModal
       opened={opened}
@@ -1959,6 +2085,7 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
               <div
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
+                onClick={() => fileInputRef.current?.click()}
                 style={{
                   border: '1px solid var(--mantine-color-dark-4)',
                   borderRadius: '8px',
@@ -1971,28 +2098,78 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
                   width: '100%',
                   aspectRatio: '1',
                   display: 'flex',
-                  flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
                   overflow: 'hidden'
                 }}
               >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageSelect(file);
+                  }}
+                />
                 {imagePreview ? (
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    style={imageStyle}
-                    onLoad={() => setIsImageLoading(false)}
-                  />
+                  <>
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      style={imageStyle}
+                      onLoad={() => setIsImageLoading(false)}
+                    />
+                    <ActionIcon
+                      variant="filled"
+                      color="red"
+                      radius="xl"
+                      size="sm"
+                      style={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        zIndex: 2
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPendingImageUpload(null);
+                        setImagePreview(null);
+                      }}
+                    >
+                      <IconTrash size={14} />
+                    </ActionIcon>
+                  </>
                 ) : formData?.id && formData.imageStatus?.hasOriginal ? (
-                  <img
-                    src={`${getImagePath(formData.id)}?t=${formData.imageTimestamp}`}
-                    alt="Current miniature"
-                    style={imageStyle}
-                    onLoad={() => setIsImageLoading(false)}
-                  />
+                  <>
+                    <img
+                      src={`${getImagePath(formData.id)}?t=${formData.imageTimestamp}`}
+                      alt="Current miniature"
+                      style={imageStyle}
+                      onLoad={() => setIsImageLoading(false)}
+                    />
+                    <ActionIcon
+                      variant="filled"
+                      color="red"
+                      radius="xl"
+                      size="sm"
+                      style={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        zIndex: 2
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDeleteImageConfirm();
+                      }}
+                    >
+                      <IconTrash size={14} />
+                    </ActionIcon>
+                  </>
                 ) : (
-                  <Stack gap="xs" align="center">
+                  <Stack gap="xs" align="center" style={{ width: '100%', height: '100%', justifyContent: 'center' }}>
                     <IconUpload size={32} style={{ opacity: 0.5 }} />
                     <Text size="sm">Drag and drop an image here</Text>
                     <Text size="xs" c="dimmed">The image will be uploaded when you save</Text>
@@ -2372,29 +2549,6 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
           </Group>
         </Group>
       </form>
-
-      {/* Notification */}
-      {notification.show && (
-        <Notification
-          title={notification.title}
-          color={notification.color}
-          onClose={() => setNotification(prev => ({ ...prev, show: false }))}
-          icon={
-            notification.color === 'red' ? <IconX size={18} /> : 
-            notification.color === 'yellow' ? <IconCheck size={18} /> :
-            <IconCheck size={18} />
-          }
-          style={{
-            position: 'fixed',
-            top: 20,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 1000
-          }}
-        >
-          {notification.message}
-        </Notification>
-      )}
     </AdminModal>
   );
 };
@@ -2404,11 +2558,27 @@ export default function Miniatures() {
   useMantineColorScheme();
   const [editingMini, setEditingMini] = useState<Mini | null>(null);
   const [isAddingMini, setIsAddingMini] = useState(false);
-  const [viewType, setViewType] = useState<ViewType>('table');
+  const [viewType, setViewType] = useState<ViewType>('cards');
   const [currentPage, setCurrentPage] = useState(1);
   const [filterText, setFilterText] = useState('');
   const [imageTimestamp, setImageTimestamp] = useState<number>(Date.now());
   const filterInputRef = useRef<HTMLInputElement>(null);
+  const [notification, setNotification] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    color: string;
+  }>({ show: false, title: '', message: '', color: 'blue' });
+
+  // Auto-hide notification after 3 seconds
+  useEffect(() => {
+    if (notification.show) {
+      const timer = setTimeout(() => {
+        setNotification(prev => ({ ...prev, show: false }));
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification.show]);
 
   // Focus the filter input
   const focusFilterInput = () => {
@@ -2622,6 +2792,10 @@ export default function Miniatures() {
     })();
   };
 
+  const handleNotification = (notification: { title: string; message: string; color: string; }) => {
+    setNotification({ ...notification, show: true });
+  };
+
   return (
     <Stack>
       <Card shadow="xl" p={0}
@@ -2701,8 +2875,31 @@ export default function Miniatures() {
         opened={!!editingMini || isAddingMini}
         onClose={isAddingMini ? handleAddModalClose : handleEditModalClose}
         miniature={editingMini}
-        onImageUpdate={setImageTimestamp}
+        onNotification={handleNotification}
       />
+
+      {/* Notification */}
+      {notification.show && (
+        <Notification
+          title={notification.title}
+          color={notification.color}
+          onClose={() => setNotification(prev => ({ ...prev, show: false }))}
+          icon={
+            notification.color === 'red' ? <IconX size={18} /> : 
+            notification.color === 'yellow' ? <IconCheck size={18} /> :
+            <IconCheck size={18} />
+          }
+          style={{
+            position: 'fixed',
+            top: 20,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 9999
+          }}
+        >
+          {notification.message}
+        </Notification>
+      )}
     </Stack>
   );
 } 
