@@ -1,7 +1,8 @@
 import { UnstyledButton, Group, Text, AppShell, Stack, Button, rem } from '@mantine/core';
-import { IconLogout, IconHome, IconPackage, IconSettings, IconPalette, IconDashboard } from '@tabler/icons-react';
+import { IconLogout, IconPalette } from '@tabler/icons-react';
 import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { sidebarLinks } from '../../../config/sidebar';
 
 interface MenuItemProps {
   label: string;
@@ -107,20 +108,6 @@ export function SideBar({ onLogout, onToggleThemeSettings }: {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const items = [
-    { link: '/', label: 'Home', icon: IconHome, color: 'blue' },
-    { link: '/miniatures', label: 'Miniatures', icon: IconPackage, color: 'teal' },
-  ];
-
-  const adminPages = [
-    { link: '/product-admin', label: 'Product Admin', icon: IconPackage, color: 'yellow' },
-    { link: '/classification-admin', label: 'Classification Admin', icon: IconSettings, color: 'orange' },
-  ];
-
-  const testPages = [
-    { link: '/ui-examples', label: 'UI Examples', icon: IconPalette, color: 'grape' },
-  ];
-
   return (
     <AppShell.Navbar 
       style={{ 
@@ -133,42 +120,9 @@ export function SideBar({ onLogout, onToggleThemeSettings }: {
       <div style={styles.sidebarContainer}>
         <div style={styles.mainContent}>
           <MenuGroup 
-            label="Navigation" 
-            icon={<IconHome size={16} style={{ color: 'var(--mantine-color-blue-4)' }} />}
+            label="Navigation"
           >
-            {items.map((item) => (
-              <MenuItem 
-                key={item.link} 
-                label={item.label} 
-                icon={item.icon}
-                color={item.color}
-                onClick={() => navigate(item.link)}
-                isActive={location.pathname === item.link}
-              />
-            ))}
-          </MenuGroup>
-
-          <MenuGroup 
-            label="Admin" 
-            icon={<IconDashboard size={16} style={{ color: 'var(--mantine-color-yellow-4)' }} />}
-          >
-            {adminPages.map((item) => (
-              <MenuItem 
-                key={item.link} 
-                label={item.label} 
-                icon={item.icon}
-                color={item.color}
-                onClick={() => navigate(item.link)}
-                isActive={location.pathname === item.link}
-              />
-            ))}
-          </MenuGroup>
-
-          <MenuGroup 
-            label="Test Pages" 
-            icon={<IconPalette size={16} style={{ color: 'var(--mantine-color-grape-4)' }} />}
-          >
-            {testPages.map((item) => (
+            {sidebarLinks.map((item) => (
               <MenuItem 
                 key={item.link} 
                 label={item.label} 

@@ -21,6 +21,7 @@ import { Notifications } from '@mantine/notifications';
 import { checkAuth } from './api/client';
 import { useMantineColorScheme } from '@mantine/core';
 import { getSettings } from './api/settings/get';
+import { routes } from './routes';
 
 interface AuthState {
   authenticated: boolean;
@@ -187,56 +188,23 @@ export default function App() {
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
             <Routes>
-              <Route 
-                path="/login" 
-                element={
-                  authState.authenticated ? (
-                    <Navigate to="/" replace />
-                  ) : (
-                    <Login onLogin={() => setAuthState({ authenticated: true, loading: false })} />
-                  )
-                } 
-              />
-              <Route 
-                path="/" 
-                element={
-                  authState.authenticated ? (
-                    <AuthenticatedLayout><Home /></AuthenticatedLayout>
-                  ) : (
-                    <Navigate to="/login" replace />
-                  )
-                } 
-              />
-              <Route 
-                path="/miniatures" 
-                element={
-                  authState.authenticated ? (
-                    <AuthenticatedLayout><Miniatures /></AuthenticatedLayout>
-                  ) : (
-                    <Navigate to="/login" replace />
-                  )
-                } 
-              />
-              <Route 
-                path="/product-admin" 
-                element={
-                  authState.authenticated ? (
-                    <AuthenticatedLayout><ProductAdmin /></AuthenticatedLayout>
-                  ) : (
-                    <Navigate to="/login" replace />
-                  )
-                } 
-              />
-              <Route 
-                path="/classification-admin" 
-                element={
-                  authState.authenticated ? (
-                    <AuthenticatedLayout><ClassificationAdmin /></AuthenticatedLayout>
-                  ) : (
-                    <Navigate to="/login" replace />
-                  )
-                } 
-              />
+              {routes.map((route) => (
+                <Route
+                  key={route.path}
+                  path={route.path}
+                  element={
+                    route.path === '/login' ? (
+                      route.element
+                    ) : (
+                      authState.authenticated ? (
+                        route.element
+                      ) : (
+                        <Navigate to="/login" replace />
+                      )
+                    )
+                  }
+                />
+              ))}
             </Routes>
             {authState.authenticated && themeSettingsVisible && (
               <FloatingDiv onClose={() => setThemeSettingsVisible(false)} />

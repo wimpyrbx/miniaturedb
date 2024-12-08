@@ -35,7 +35,9 @@ const getMinisDb = () => {
 
 app.use(cors({
   origin: 'http://localhost:5173', // Vite's default port
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(cookieParser());
 app.use(express.json());
@@ -1484,6 +1486,74 @@ app.post('/api/miniatures', requireAuth, (req, res) => {
   }
 });
 
+app.get('/api/dashboard/type-distribution', requireAuth, (_req, res) => {
+  try {
+    const data = getMinisDb().prepare(`
+      SELECT 
+        mt.name as type,
+        COUNT(DISTINCT mtt.mini_id) as count
+      FROM mini_types mt
+      LEFT JOIN mini_to_types mtt ON mt.id = mtt.type_id
+      WHERE mtt.mini_id IS NOT NULL
+      GROUP BY mt.id, mt.name
+      HAVING count > 0
+      ORDER BY count DESC, mt.name
+      LIMIT 10
+    `).all();
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching type distribution:', error);
+    res.status(500).json({ error: 'Failed to fetch type distribution' });
+  }
+});
+
+app.get('/api/dashboard/location-distribution', requireAuth, (_req, res) => {
+  try {
+    const data = getMinisDb().prepare(`
+      SELECT 
+        location,
+        SUM(quantity) as count
+      FROM minis
+      GROUP BY location
+      HAVING count > 0
+      ORDER BY count DESC
+      LIMIT 10
+    `).all();
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching location distribution:', error);
+    res.status(500).json({ error: 'Failed to fetch location distribution' });
+  }
+});
+
+app.get('/api/dashboard/collection-growth', requireAuth, (_req, res) => {
+  try {
+    const data = getMinisDb().prepare(`
+      WITH RECURSIVE months(date) AS (
+        SELECT date(MIN(created_at), 'start of month')
+        FROM minis
+        UNION ALL
+        SELECT date(date, '+1 month')
+        FROM months
+        WHERE date < date('now', 'start of month')
+      )
+      SELECT 
+        strftime('%Y-%m', date) as month,
+        (
+          SELECT COUNT(*)
+          FROM minis
+          WHERE date(created_at) <= date(months.date, '+1 month', '-1 day')
+        ) as count
+      FROM months
+      ORDER BY month ASC
+    `).all();
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching collection growth:', error);
+    res.status(500).json({ error: 'Failed to fetch collection growth' });
+  }
+});
+
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log(`Server running at http://localhost:${port}`);
 }); 
