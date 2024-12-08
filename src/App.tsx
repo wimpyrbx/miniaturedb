@@ -16,7 +16,6 @@ import FloatingDiv from './components/FloatingDiv';
 import Miniatures from './pages/Miniatures';
 import { ProductAdmin } from './pages/ProductAdmin';
 import { ClassificationAdmin } from './pages/ClassificationAdmin';
-import { UIExamples } from './pages/UIExamples';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Notifications } from '@mantine/notifications';
 import { checkAuth } from './api/client';
@@ -233,16 +232,6 @@ export default function App() {
                 element={
                   authState.authenticated ? (
                     <AuthenticatedLayout><ClassificationAdmin /></AuthenticatedLayout>
-                  ) : (
-                    <Navigate to="/login" replace />
-                  )
-                } 
-              />
-              <Route 
-                path="/ui-examples" 
-                element={
-                  authState.authenticated ? (
-                    <AuthenticatedLayout><UIExamples /></AuthenticatedLayout>
                   ) : (
                     <Navigate to="/login" replace />
                   )

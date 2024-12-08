@@ -239,9 +239,9 @@ const TableView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp }:
 
           {/* Categories Row */}
           <Group gap={4}>
-            {mini.category_names?.map((category, index) => (
+            {mini.category_names?.map((category) => (
               <Badge
-                key={index}
+                key={`${mini.id}-${category}`}
                 size="xs"
                 variant="light"
                 color="grape"
@@ -2431,9 +2431,9 @@ const MiniatureModal = ({ opened, onClose, miniature, onNotification }: Miniatur
                                     <Text c="primary">{type.name}</Text>
                                     {type.category_names && Array.isArray(type.category_names) && type.category_names.length > 0 && (
                                       <Group gap={0} wrap="wrap">
-                                        {type.category_names.map((category: string, idx: number) => (
+                                        {type.category_names.map((category: string) => (
                                           <Badge 
-                                            key={idx} 
+                                            key={`${type.id}-${category}`}
                                             size="xs" 
                                             variant="light"
                                             color="primary"
