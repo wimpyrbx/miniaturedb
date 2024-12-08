@@ -9,7 +9,7 @@ interface AdminModalProps {
   size?: string | number;
   icon?: ReactNode;
   fullScreen?: boolean;
-  rightHeaderText?: string;
+  rightHeaderText?: ReactNode;
 }
 
 export function AdminModal({ 
@@ -65,7 +65,7 @@ export function AdminModal({
             <Title order={3} c="white">{title}</Title>
           </Group>
           {rightHeaderText && (
-            <Text c="white" fw={500}>{rightHeaderText}</Text>
+            <Text c="white" size="sm" style={{ whiteSpace: 'pre-line' }}>{rightHeaderText}</Text>
           )}
         </Group>
         <Box p="md">

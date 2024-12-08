@@ -1928,7 +1928,21 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
       opened={opened}
       onClose={onClose}
       title={miniature ? `Edit Miniature: ${miniature.name}` : 'Add Miniature'}
-      rightHeaderText={miniature ? `ID: ${miniature.id}` : ''}
+      rightHeaderText={miniature ? (
+        <>
+          ID: <Text span fw={700} inherit>#{miniature.id}</Text>
+          {'\n'}
+          Added: <Text span fw={700} inherit>{new Date(miniature.created_at).toLocaleString('en-GB', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+          })}</Text>
+        </>
+      ) : ''}
       size="70%"
     >
       <form onSubmit={handleSubmit}>
