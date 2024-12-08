@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useEffect } from 'react';
 import { useState } from 'react';
 import { Stack, Title, Text, Group, Card, Button, TextInput, Select, Textarea, NumberInput, useMantineColorScheme, TagsInput, Badge, Center, Loader, SegmentedControl, Pagination, Box, Grid, ActionIcon, Table, Combobox, useCombobox, InputBase, ScrollArea, Notification, SimpleGrid, List, useMantineTheme } from '@mantine/core';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { IconPlus, IconPhoto, IconTable, IconLayoutGrid, IconLayoutList, IconSearch, IconTrash, IconX, IconCheck, IconClock, IconUpload } from '@tabler/icons-react';
+import { IconPlus, IconPhoto, IconTable, IconLayoutGrid, IconLayoutList, IconSearch, IconTrash, IconX, IconCheck, IconClock, IconUpload, IconEdit } from '@tabler/icons-react';
 import { AdminModal } from '../components/AdminModal';
 import { getMiniatureImagePath, checkMiniatureImageStatus, ImageStatus } from '../utils/imageUtils';
 import { modals } from '@mantine/modals';
@@ -332,21 +332,22 @@ const CardsView = ({ minis, onEdit, imageTimestamp }: {
             position: 'relative',
             overflow: 'hidden',
             cursor: 'pointer',
-            border: '1px solid transparent'
+            border: '1px solid var(--mantine-color-dark-4)',
+            backgroundColor: 'var(--mantine-color-dark-6)'
           }}
           onClick={() => onEdit(mini)}
           onMouseEnter={(e) => {
             const target = e.currentTarget;
             target.style.transform = 'translateY(-4px) scale(1.02)';
             target.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.3)';
-            target.style.borderColor = 'var(--mantine-color-primary-light)';
+            target.style.borderColor = 'var(--mantine-color-blue-4)';
             target.style.zIndex = '1';
           }}
           onMouseLeave={(e) => {
             const target = e.currentTarget;
             target.style.transform = 'none';
             target.style.boxShadow = 'var(--mantine-shadow-sm)';
-            target.style.borderColor = 'transparent';
+            target.style.borderColor = 'var(--mantine-color-dark-4)';
             target.style.zIndex = 'auto';
           }}
         >
@@ -1928,6 +1929,10 @@ const MiniatureModal = ({ opened, onClose, miniature }: MiniatureModalProps) => 
       opened={opened}
       onClose={onClose}
       title={miniature ? `Edit Miniature: ${miniature.name}` : 'Add Miniature'}
+      icon={miniature ? 
+        <IconEdit size={24} style={{ color: 'white' }} /> : 
+        <IconPlus size={24} style={{ color: 'white' }} />
+      }
       rightHeaderText={miniature ? (
         <>
           ID: <Text span fw={700} inherit>#{miniature.id}</Text>
