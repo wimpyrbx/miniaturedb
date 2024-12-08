@@ -22,6 +22,8 @@ interface DataTableProps<T> {
   withPagination?: boolean;
   withFiltering?: boolean;
   pageSize?: number;
+  currentPage?: number;
+  onPageChange?: (page: number) => void;
   filterInputProps?: {
     rightSection?: React.ReactNode;
     rightSectionWidth?: number;
@@ -37,16 +39,27 @@ export function DataTable<T>({
   withPagination = false,
   withFiltering = false,
   pageSize = 10,
+  currentPage,
+  onPageChange,
   filterInputProps
 }: DataTableProps<T>) {
-  const [currentPage, setCurrentPage] = useState(1);
+  const [internalCurrentPage, setInternalCurrentPage] = useState(1);
   const [internalSearchTerm, setInternalSearchTerm] = useState('');
+
+  // Use external pagination state if provided, otherwise use internal
+  const activePage = currentPage ?? internalCurrentPage;
+  const handlePageChange = onPageChange ?? setInternalCurrentPage;
 
   // Use external search term if provided, otherwise use internal
   const searchTerm = filterInputProps?.value ?? internalSearchTerm;
   const handleSearchChange = filterInputProps?.onChange ?? ((e: React.ChangeEvent<HTMLInputElement>) => {
     setInternalSearchTerm(e.currentTarget.value);
-    setCurrentPage(1);
+    // Reset page to 1 when search changes
+    if (onPageChange) {
+      onPageChange(1);
+    } else {
+      setInternalCurrentPage(1);
+    }
   });
 
   // Filter data based on search term
@@ -70,7 +83,7 @@ export function DataTable<T>({
   // Calculate pagination
   const totalPages = Math.ceil(filteredData.length / pageSize);
   const paginatedData = withPagination
-    ? filteredData.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+    ? filteredData.slice((activePage - 1) * pageSize, activePage * pageSize)
     : filteredData;
 
   return (
@@ -108,8 +121,8 @@ export function DataTable<T>({
       {withPagination && totalPages > 1 && (
         <Group justify="center">
           <Pagination
-            value={currentPage}
-            onChange={setCurrentPage}
+            value={activePage}
+            onChange={handlePageChange}
             total={totalPages}
           />
         </Group>

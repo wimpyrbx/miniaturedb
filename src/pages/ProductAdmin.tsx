@@ -529,56 +529,22 @@ export function ProductAdmin() {
   const [currentSetPage, setCurrentSetPage] = useState(1);
   const PAGE_SIZE = 15;
 
-  // Pagination helpers
-  const paginateData = <T extends any>(data: T[], currentPage: number): T[] => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    const end = start + PAGE_SIZE;
-    return data.slice(start, end);
+  // Get filtered data (not paginated)
+  const getFilteredCompanies = () => {
+    return filterCompaniesWithChildren(companies ?? []);
+  };
+
+  const getFilteredLines = () => {
+    return filterLinesWithChildren(productLines ?? []);
+  };
+
+  const getFilteredSets = () => {
+    return filterSetsWithChildren(productSets ?? []);
   };
 
   const [companySearchTerm, setCompanySearchTerm] = useState('');
   const [lineSearchTerm, setLineSearchTerm] = useState('');
   const [setSearchTerm, setSetSearchTerm] = useState('');
-
-  // Get paginated and filtered data
-  const getPaginatedCompanies = () => {
-    const filtered = filterCompaniesWithChildren(companies ?? []);
-    return filtered;
-  };
-
-  const getPaginatedLines = () => {
-    const filtered = filterLinesWithChildren(productLines ?? []);
-    return filtered;
-  };
-
-  const getPaginatedSets = () => {
-    const filtered = filterSetsWithChildren(productSets ?? []);
-    return filtered;
-  };
-
-  const getFilteredCompaniesCount = () => {
-    const filtered = filterCompaniesWithChildren(companies ?? []);
-    return filtered.filter(company => {
-      if (!company.name) return false;
-      return company.name.toLowerCase().includes(companySearchTerm.toLowerCase());
-    }).length;
-  };
-
-  const getFilteredLinesCount = () => {
-    const filtered = filterLinesWithChildren(productLines ?? []);
-    return filtered.filter(line => {
-      if (!line.name) return false;
-      return line.name.toLowerCase().includes(lineSearchTerm.toLowerCase());
-    }).length;
-  };
-
-  const getFilteredSetsCount = () => {
-    const filtered = filterSetsWithChildren(productSets ?? []);
-    return filtered.filter(set => {
-      if (!set.name) return false;
-      return set.name.toLowerCase().includes(setSearchTerm.toLowerCase());
-    }).length;
-  };
 
   return (
     <>
@@ -630,12 +596,14 @@ export function ProductAdmin() {
                       <Text c="dimmed" ta="center">No companies found</Text>
                     ) : (
                       <DataTable
-                        data={getPaginatedCompanies()}
+                        data={getFilteredCompanies()}
                         columns={companyColumns}
                         rowComponent={renderCompanyRow}
                         withPagination={true}
                         withFiltering
                         pageSize={PAGE_SIZE}
+                        currentPage={currentCompanyPage}
+                        onPageChange={setCurrentCompanyPage}
                         filterInputProps={{
                           value: companySearchTerm,
                           onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -660,15 +628,6 @@ export function ProductAdmin() {
                     )}
                   </Stack>
                 </Card>
-                {companies && getFilteredCompaniesCount() > PAGE_SIZE && (
-                  <Group justify="center">
-                    <Pagination
-                      total={Math.ceil(getFilteredCompaniesCount() / PAGE_SIZE)}
-                      value={currentCompanyPage}
-                      onChange={setCurrentCompanyPage}
-                    />
-                  </Group>
-                )}
               </Stack>
             </Grid.Col>
 
@@ -738,12 +697,14 @@ export function ProductAdmin() {
                       <Text c="dimmed" ta="center">No product lines found</Text>
                     ) : (
                       <DataTable
-                        data={getPaginatedLines()}
+                        data={getFilteredLines()}
                         columns={lineColumns}
                         rowComponent={renderLineRow}
                         withPagination={true}
                         withFiltering
                         pageSize={PAGE_SIZE}
+                        currentPage={currentLinePage}
+                        onPageChange={setCurrentLinePage}
                         filterInputProps={{
                           value: lineSearchTerm,
                           onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -768,15 +729,6 @@ export function ProductAdmin() {
                     )}
                   </Stack>
                 </Card>
-                {productLines && getFilteredLinesCount() > PAGE_SIZE && (
-                  <Group justify="center">
-                    <Pagination
-                      total={Math.ceil(getFilteredLinesCount() / PAGE_SIZE)}
-                      value={currentLinePage}
-                      onChange={setCurrentLinePage}
-                    />
-                  </Group>
-                )}
               </Stack>
             </Grid.Col>
 
@@ -841,12 +793,14 @@ export function ProductAdmin() {
                       <Text c="dimmed" ta="center">No product sets found</Text>
                     ) : (
                       <DataTable
-                        data={getPaginatedSets()}
+                        data={getFilteredSets()}
                         columns={setColumns}
                         rowComponent={renderSetRow}
                         withPagination={true}
                         withFiltering
                         pageSize={PAGE_SIZE}
+                        currentPage={currentSetPage}
+                        onPageChange={setCurrentSetPage}
                         filterInputProps={{
                           value: setSearchTerm,
                           onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -871,15 +825,6 @@ export function ProductAdmin() {
                     )}
                   </Stack>
                 </Card>
-                {productSets && getFilteredSetsCount() > PAGE_SIZE && (
-                  <Group justify="center">
-                    <Pagination
-                      total={Math.ceil(getFilteredSetsCount() / PAGE_SIZE)}
-                      value={currentSetPage}
-                      onChange={setCurrentSetPage}
-                    />
-                  </Group>
-                )}
               </Stack>
             </Grid.Col>
           </Grid>

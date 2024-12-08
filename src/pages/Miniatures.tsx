@@ -11,6 +11,7 @@ import { updateSettings } from '../api/settings/update';
 import { getSettings } from '../api/settings/get';
 import debounce from 'lodash/debounce';
 import { notifications } from '@mantine/notifications';
+import { DataTable } from '../components/ui/table/DataTable';
 
 
 interface MiniType {
@@ -138,7 +139,7 @@ type ViewType = 'table' | 'cards' | 'banner' | 'timeline';
 
 const ITEMS_PER_PAGE = 10;
 
-const TableView = ({ minis, onEdit, currentPage, imageTimestamp }: { 
+const TableView = ({ minis, onEdit, currentPage, onPageChange, imageTimestamp }: { 
   minis: Mini[], 
   onEdit: (mini: Mini) => void,
   currentPage: number,
@@ -146,9 +147,147 @@ const TableView = ({ minis, onEdit, currentPage, imageTimestamp }: {
   imageTimestamp: number
 }) => {
   const theme = useMantineTheme();
-  const paginatedMinis = minis.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
+
+  const columns = [
+    { key: 'image', label: '', filterable: false },
+    { key: 'name', label: 'Name', filterable: true },
+    { key: 'types', label: 'Types / Categories', filterable: true },
+    { key: 'details', label: 'Details', filterable: true }
+  ];
+
+  const renderRow = (mini: Mini) => (
+    <Table.Tr 
+      key={mini.id} 
+      onClick={() => onEdit(mini)}
+      style={{ 
+        cursor: 'pointer',
+        transition: 'background-color 0.2s',
+        '&:hover': {
+          backgroundColor: theme.colors.dark[6]
+        }
+      }}
+    >
+      {/* Image Column */}
+      <Table.Td>
+        <div style={{ 
+          width: '50px',
+          height: '50px',
+          backgroundColor: theme.colors.dark[4],
+          borderRadius: theme.radius.sm,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          {mini.imageStatus?.hasOriginal ? (
+            <img 
+              src={getMiniatureImagePath(mini.id, 'original', mini.imageTimestamp || imageTimestamp)}
+              alt={mini.name}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain'
+              }}
+            />
+          ) : (
+            <IconPhoto size={20} style={{ opacity: 0.5 }} />
+          )}
+        </div>
+      </Table.Td>
+
+      {/* Name Column */}
+      <Table.Td>
+        <Group justify="space-between" wrap="nowrap">
+          <Text fw={500} size="sm" style={{ flex: 1 }}>{mini.name}</Text>
+          {mini.quantity > 1 && (
+            <Badge size="sm" variant="light" color="blue">×{mini.quantity}</Badge>
+          )}
+        </Group>
+      </Table.Td>
+
+      {/* Types / Categories Column */}
+      <Table.Td>
+        <Stack gap={4}>
+          {/* Types Row */}
+          <Group gap={4}>
+            {mini.types
+              .filter(type => !type.proxy_type)
+              .map((type, index) => (
+                <Badge 
+                  key={type.id} 
+                  size="sm"
+                  variant={index === 0 ? "filled" : "light"}
+                  color="teal"
+                >
+                  {type.name}
+                </Badge>
+              ))}
+            {mini.types
+              .filter(type => type.proxy_type)
+              .map(type => (
+                <Badge 
+                  key={type.id} 
+                  size="xs"
+                  variant="light"
+                  color="gray"
+                >
+                  {type.name}
+                </Badge>
+              ))}
+          </Group>
+
+          {/* Categories Row */}
+          <Group gap={4}>
+            {mini.category_names?.map((category, index) => (
+              <Badge
+                key={index}
+                size="xs"
+                variant="light"
+                color="grape"
+              >
+                {category}
+              </Badge>
+            ))}
+          </Group>
+        </Stack>
+      </Table.Td>
+
+      {/* Details Column */}
+      <Table.Td>
+        <Stack gap={4}>
+          {/* Base Size & Painted By Row */}
+          <Group gap={4}>
+            <Badge size="sm" variant="light" color="cyan">
+              {mini.base_size_name ? capitalizeFirst(mini.base_size_name) : 'No Base'}
+            </Badge>
+            <Badge size="sm" variant="light" color="violet">
+              {mini.painted_by_name?.toLowerCase() === 'prepainted' ? 'Prepainted' :
+               mini.painted_by_name?.toLowerCase() === 'self' ? 'Selfpainted' :
+               mini.painted_by_name ? `Painted by other` : 'Not painted'}
+            </Badge>
+          </Group>
+
+          {/* Tags Row */}
+          <Group gap={4}>
+            {mini.tags && mini.tags.length > 0 ? (
+              mini.tags.map(tag => (
+                <Badge 
+                  key={tag.id} 
+                  size="xs" 
+                  variant="light"
+                  color="blue"
+                >
+                  {tag.name.replace(/^[^:]+:\s*/, '')}
+                </Badge>
+              ))
+            ) : (
+              <Text size="xs" c="dimmed" fs="italic">No tags</Text>
+            )}
+          </Group>
+        </Stack>
+      </Table.Td>
+    </Table.Tr>
   );
 
   const capitalizeFirst = (str: string) => {
@@ -156,155 +295,20 @@ const TableView = ({ minis, onEdit, currentPage, imageTimestamp }: {
   };
 
   return (
-    <Table highlightOnHover withTableBorder>
-      <Table.Thead style={{ 
-        backgroundColor: theme.colors.dark[7],
-        borderBottom: `1px solid ${theme.colors.dark[4]}`
-      }}>
-        <Table.Tr>
-          <Table.Th style={{ width: '60px' }}></Table.Th>
-          <Table.Th>Name</Table.Th>
-          <Table.Th>Types / Categories</Table.Th>
-          <Table.Th>Details</Table.Th>
-        </Table.Tr>
-      </Table.Thead>
-      <Table.Tbody>
-        {paginatedMinis.map((mini) => (
-          <Table.Tr 
-            key={mini.id} 
-            onClick={() => onEdit(mini)}
-            style={{ 
-              cursor: 'pointer',
-              transition: 'background-color 0.2s',
-              '&:hover': {
-                backgroundColor: theme.colors.dark[6]
-              }
-            }}
-          >
-            {/* Image Column */}
-            <Table.Td>
-              <div style={{ 
-                width: '50px',
-                height: '50px',
-                backgroundColor: theme.colors.dark[4],
-                borderRadius: theme.radius.sm,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                position: 'relative',
-                overflow: 'hidden'
-              }}>
-                {mini.imageStatus?.hasOriginal ? (
-                  <img 
-                    src={getMiniatureImagePath(mini.id, 'original', mini.imageTimestamp || imageTimestamp)}
-                    alt={mini.name}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'contain'
-                    }}
-                  />
-                ) : (
-                  <IconPhoto size={20} style={{ opacity: 0.5 }} />
-                )}
-              </div>
-            </Table.Td>
-
-            {/* Name Column */}
-            <Table.Td>
-              <Group justify="space-between" wrap="nowrap">
-                <Text fw={500} size="sm" style={{ flex: 1 }}>{mini.name}</Text>
-                {mini.quantity > 1 && (
-                  <Badge size="sm" variant="light" color="blue">×{mini.quantity}</Badge>
-                )}
-              </Group>
-            </Table.Td>
-
-            {/* Types / Categories Column */}
-            <Table.Td>
-              <Stack gap={4}>
-                {/* Types Row */}
-                <Group gap={4}>
-                  {mini.types
-                    .filter(type => !type.proxy_type)
-                    .map((type, index) => (
-                      <Badge 
-                        key={type.id} 
-                        size="sm"
-                        variant={index === 0 ? "filled" : "light"}
-                        color="teal"
-                      >
-                        {type.name}
-                      </Badge>
-                    ))}
-                  {mini.types
-                    .filter(type => type.proxy_type)
-                    .map(type => (
-                      <Badge 
-                        key={type.id} 
-                        size="xs"
-                        variant="light"
-                        color="gray"
-                      >
-                        {type.name}
-                      </Badge>
-                    ))}
-                </Group>
-
-                {/* Categories Row */}
-                <Group gap={4}>
-                  {mini.category_names?.map((category, index) => (
-                    <Badge
-                      key={index}
-                      size="xs"
-                      variant="light"
-                      color="grape"
-                    >
-                      {category}
-                    </Badge>
-                  ))}
-                </Group>
-              </Stack>
-            </Table.Td>
-
-            {/* Details Column */}
-            <Table.Td>
-              <Stack gap={4}>
-                {/* Base Size & Painted By Row */}
-                <Group gap={4}>
-                  <Badge size="sm" variant="light" color="cyan">
-                    {mini.base_size_name ? capitalizeFirst(mini.base_size_name) : 'No Base'}
-                  </Badge>
-                  <Badge size="sm" variant="light" color="violet">
-                    {mini.painted_by_name?.toLowerCase() === 'prepainted' ? 'Prepainted' :
-                     mini.painted_by_name?.toLowerCase() === 'self' ? 'Selfpainted' :
-                     mini.painted_by_name ? `Painted by other` : 'Not painted'}
-                  </Badge>
-                </Group>
-
-                {/* Tags Row */}
-                <Group gap={4}>
-                  {mini.tags && mini.tags.length > 0 ? (
-                    mini.tags.map(tag => (
-                      <Badge 
-                        key={tag.id} 
-                        size="xs" 
-                        variant="light"
-                        color="blue"
-                      >
-                        {tag.name.replace(/^[^:]+:\s*/, '')}
-                      </Badge>
-                    ))
-                  ) : (
-                    <Text size="xs" c="dimmed" fs="italic">No tags</Text>
-                  )}
-                </Group>
-              </Stack>
-            </Table.Td>
-          </Table.Tr>
-        ))}
-      </Table.Tbody>
-    </Table>
+    <DataTable
+      data={minis}
+      columns={columns}
+      rowComponent={renderRow}
+      withPagination={true}
+      withFiltering={false}
+      pageSize={ITEMS_PER_PAGE}
+      currentPage={currentPage}
+      onPageChange={onPageChange}
+      filterInputProps={{
+        rightSection: undefined,
+        rightSectionWidth: undefined
+      }}
+    />
   );
 };
 
@@ -2552,13 +2556,17 @@ export default function Miniatures() {
   // Calculate total pages based on filtered results
   const totalPages = Math.ceil((filteredMinis?.length || 0) / ITEMS_PER_PAGE);
 
-  // Get paginated data
+  // Get paginated data for non-table views
   const paginatedMinis = useMemo(() => {
+    if (viewType === 'table') {
+      return filteredMinis; // For table view, return all data and let DataTable handle pagination
+    }
+    // For other views, handle pagination here
     return filteredMinis.slice(
       (currentPage - 1) * ITEMS_PER_PAGE,
       currentPage * ITEMS_PER_PAGE
     );
-  }, [filteredMinis, currentPage]);
+  }, [filteredMinis, currentPage, viewType]);
 
   const renderView = () => {
     if (isLoadingMinis) {
@@ -2574,7 +2582,7 @@ export default function Miniatures() {
     }
 
     const viewProps = {
-      minis: paginatedMinis,
+      minis: viewType === 'table' ? filteredMinis : paginatedMinis, // Pass full data for table view, paginated for others
       onEdit: setEditingMini,
       currentPage,
       onPageChange: handlePageChange,
@@ -2658,7 +2666,8 @@ export default function Miniatures() {
         </Stack>
       </Card>
 
-      {totalPages > 1 && (
+      {/* Show pagination for non-table views */}
+      {viewType !== 'table' && totalPages > 1 && (
         <Group justify="center">
           <Pagination 
             value={currentPage}
