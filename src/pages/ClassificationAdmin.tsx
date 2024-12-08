@@ -5,12 +5,12 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Grid, Title, Card, Button, Group, Text, Stack, TextInput, Notification, Center, Loader, Box, useMantineColorScheme, Table, Switch, ScrollArea, UnstyledButton, useMantineTheme, Pagination } from '@mantine/core';
-import { IconPlus, IconCheck, IconX, IconCircleCheck, IconCircle } from '@tabler/icons-react';
+import { IconPlus, IconCheck, IconX, IconCircleCheck, IconCircle, IconSearch } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TableActions } from '../components/ui/tableactions/TableActions';
 import { modals } from '@mantine/modals';
-import { DataTable } from '../components/ui/table/DataTable';
 import { AdminModal } from '../components/AdminModal';
+import { StyledTable } from '../components/ui/table/StyledTable';
 
 // Types
 interface MiniatureType {
@@ -95,21 +95,57 @@ export function ClassificationAdmin() {
   const [currentCategoryPage, setCurrentCategoryPage] = useState(1);
   const PAGE_SIZE = 15;
 
+  // Add search state
+  const [typeSearchTerm, setTypeSearchTerm] = useState('');
+  const [categorySearchTerm, setCategorySearchTerm] = useState('');
+
+  // Filter functions
+  const filterTypes = (types: MiniatureType[]) => {
+    let filtered = types;
+    
+    // Apply search filter
+    if (typeSearchTerm) {
+      filtered = filtered.filter(type => 
+        type.name.toLowerCase().includes(typeSearchTerm.toLowerCase())
+      );
+    }
+    
+    // Apply "In Use Only" filter
+    if (showOnlyWithTypeChildren) {
+      filtered = filtered.filter(type => {
+        const categoryCount = queryClient.getQueryData<MiniatureCategory[]>(
+          ['miniature_categories', type.id]
+        )?.length || 0;
+        return categoryCount > 0;
+      });
+    }
+    
+    return filtered;
+  };
+
+  const filterCategories = (categories: MiniatureCategory[]) => {
+    if (!categorySearchTerm) return categories;
+    return categories.filter(category => 
+      category.name.toLowerCase().includes(categorySearchTerm.toLowerCase())
+    );
+  };
+
+  // Get filtered and paginated data
+  const getPaginatedTypes = () => {
+    const filtered = filterTypes(types ?? []);
+    return paginateData(filtered, currentTypePage);
+  };
+
+  const getPaginatedCategories = () => {
+    const filtered = filterCategories(categories ?? []);
+    return paginateData(filtered, currentCategoryPage);
+  };
+
   // Pagination helpers
   const paginateData = <T extends any>(data: T[], currentPage: number): T[] => {
     const start = (currentPage - 1) * PAGE_SIZE;
     const end = start + PAGE_SIZE;
     return data.slice(start, end);
-  };
-
-  // Get paginated and filtered data
-  const getPaginatedTypes = () => {
-    const filtered = filterTypesWithChildren(types ?? []);
-    return paginateData(filtered, currentTypePage);
-  };
-
-  const getPaginatedCategories = () => {
-    return paginateData(categories ?? [], currentCategoryPage) as MiniatureCategory[];
   };
 
   // Queries
@@ -482,17 +518,6 @@ export function ClassificationAdmin() {
     </Table.Tr>
   );
 
-  // Update filter function
-  const filterTypesWithChildren = (types: MiniatureType[]) => {
-    if (!showOnlyWithTypeChildren) return types;
-    return types.filter(type => {
-      const categoryCount = queryClient.getQueryData<MiniatureCategory[]>(
-        ['miniature_categories', type.id]
-      )?.length || 0;
-      return categoryCount > 0;
-    });
-  };
-
   return (
     <>
       <Stack gap="md">
@@ -548,36 +573,50 @@ export function ClassificationAdmin() {
                     ) : types?.length === 0 ? (
                       <Text c="dimmed" ta="center">No types found</Text>
                     ) : (
-                      <DataTable
-                        data={getPaginatedTypes()}
-                        columns={typeColumns}
-                        rowComponent={renderTypeRow}
-                        withPagination={false}
-                        withFiltering
-                        pageSize={PAGE_SIZE}
-                        filterInputProps={{
-                          rightSection: (
-                            <Group gap="xs" wrap="nowrap">
-                              <Text size="sm" c="dimmed">In Use Only</Text>
-                              <Switch
-                                checked={showOnlyWithTypeChildren}
-                                onChange={(event) => {
-                                  setShowOnlyWithTypeChildren(event.currentTarget.checked);
-                                  setCurrentTypePage(1);
-                                }}
-                                size="sm"
-                              />
-                            </Group>
-                          )
-                        }}
-                      />
+                      <Stack gap="sm">
+                        <Group gap="sm" justify="space-between" align="center">
+                          <TextInput
+                            placeholder="Search types..."
+                            leftSection={<IconSearch size={16} />}
+                            value={typeSearchTerm}
+                            onChange={(e) => {
+                              setTypeSearchTerm(e.currentTarget.value);
+                              setCurrentTypePage(1);
+                            }}
+                            style={{ flex: 1 }}
+                          />
+                          <Group gap="xs" wrap="nowrap">
+                            <Text size="sm" c="dimmed">In Use Only</Text>
+                            <Switch
+                              checked={showOnlyWithTypeChildren}
+                              onChange={(event) => {
+                                setShowOnlyWithTypeChildren(event.currentTarget.checked);
+                                setCurrentTypePage(1);
+                              }}
+                              size="sm"
+                            />
+                          </Group>
+                        </Group>
+                        <StyledTable>
+                          <Table.Thead>
+                            <Table.Tr>
+                              {typeColumns.map(col => (
+                                <Table.Th key={col.key}>{col.label}</Table.Th>
+                              ))}
+                            </Table.Tr>
+                          </Table.Thead>
+                          <Table.Tbody>
+                            {getPaginatedTypes().map((type) => renderTypeRow(type))}
+                          </Table.Tbody>
+                        </StyledTable>
+                      </Stack>
                     )}
                   </Stack>
                 </Card>
-                {types && filterTypesWithChildren(types).length > PAGE_SIZE && (
+                {types && filterTypes(types).length > PAGE_SIZE && (
                   <Group justify="center">
                     <Pagination
-                      total={Math.ceil(filterTypesWithChildren(types).length / PAGE_SIZE)}
+                      total={Math.ceil(filterTypes(types).length / PAGE_SIZE)}
                       value={currentTypePage}
                       onChange={setCurrentTypePage}
                     />
@@ -653,21 +692,36 @@ export function ClassificationAdmin() {
                     ) : categories?.length === 0 ? (
                       <Text c="dimmed" ta="center">No categories found</Text>
                     ) : (
-                      <DataTable
-                        data={getPaginatedCategories()}
-                        columns={categoryColumns}
-                        rowComponent={renderCategoryRow}
-                        withPagination={false}
-                        withFiltering
-                        pageSize={PAGE_SIZE}
-                      />
+                      <Stack gap="sm">
+                        <TextInput
+                          placeholder="Search categories..."
+                          leftSection={<IconSearch size={16} />}
+                          value={categorySearchTerm}
+                          onChange={(e) => {
+                            setCategorySearchTerm(e.currentTarget.value);
+                            setCurrentCategoryPage(1);
+                          }}
+                        />
+                        <StyledTable>
+                          <Table.Thead>
+                            <Table.Tr>
+                              {categoryColumns.map(col => (
+                                <Table.Th key={col.key}>{col.label}</Table.Th>
+                              ))}
+                            </Table.Tr>
+                          </Table.Thead>
+                          <Table.Tbody>
+                            {getPaginatedCategories().map((category) => renderCategoryRow(category))}
+                          </Table.Tbody>
+                        </StyledTable>
+                      </Stack>
                     )}
                   </Stack>
                 </Card>
-                {categories && categories.length > PAGE_SIZE && (
+                {categories && filterCategories(categories).length > PAGE_SIZE && (
                   <Group justify="center">
                     <Pagination
-                      total={Math.ceil(categories.length / PAGE_SIZE)}
+                      total={Math.ceil(filterCategories(categories).length / PAGE_SIZE)}
                       value={currentCategoryPage}
                       onChange={setCurrentCategoryPage}
                     />

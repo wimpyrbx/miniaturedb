@@ -308,21 +308,16 @@ const TableView = ({ minis, onEdit, currentPage, imageTimestamp }: {
   );
 };
 
-const CardsView = ({ minis, onEdit, currentPage, imageTimestamp }: { 
+const CardsView = ({ minis, onEdit, imageTimestamp }: { 
   minis: Mini[], 
   onEdit: (mini: Mini) => void,
   currentPage: number,
   onPageChange: (page: number) => void,
   imageTimestamp: number
 }) => {
-  const paginatedMinis = minis.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
-
   return (
     <SimpleGrid cols={5} spacing="sm">
-      {paginatedMinis.map((mini) => (
+      {minis.map((mini) => (
         <Card 
           key={mini.id} 
           shadow="sm" 
@@ -443,7 +438,7 @@ const CardsView = ({ minis, onEdit, currentPage, imageTimestamp }: {
   );
 };
 
-const BannerView = ({ minis, onEdit, currentPage, imageTimestamp }: { 
+const BannerView = ({ minis, onEdit, imageTimestamp }: { 
   minis: Mini[], 
   onEdit: (mini: Mini) => void,
   currentPage: number,
@@ -458,11 +453,6 @@ const BannerView = ({ minis, onEdit, currentPage, imageTimestamp }: {
     }))
   , [minis]);
 
-  const paginatedMinis = minis.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
-
   return (
     <Stack>
       <div style={{ 
@@ -470,7 +460,7 @@ const BannerView = ({ minis, onEdit, currentPage, imageTimestamp }: {
         gridTemplateColumns: 'repeat(2, 1fr)',
         gap: 'var(--mantine-spacing-xs)'
       }}>
-        {paginatedMinis.map((mini, index) => (
+        {minis.map((mini, index) => (
           <Card 
             key={mini.id} 
             shadow="sm" 
@@ -2424,8 +2414,11 @@ export default function Miniatures() {
             ['table', 'cards', 'banner', 'timeline'].includes(settings.miniatures_view_type)) {
           setViewType(settings.miniatures_view_type as ViewType);
         }
-        if (settings.miniatures_view_last_page_visited) {
+        // Only set the last page if there's no saved filter
+        if (!settings.miniatures_view_last_filter_text && settings.miniatures_view_last_page_visited) {
           setCurrentPage(parseInt(settings.miniatures_view_last_page_visited));
+        } else {
+          setCurrentPage(1); // Reset to page 1 if there's a filter
         }
         if (settings.miniatures_view_last_filter_text) {
           setFilterText(settings.miniatures_view_last_filter_text);
@@ -2485,7 +2478,7 @@ export default function Miniatures() {
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newText = e.target.value;
     setFilterText(newText);
-    setCurrentPage(1);
+    setCurrentPage(1);  // Reset to page 1 when filter changes
     debouncedSaveFilter(newText);
   };
 
@@ -2515,6 +2508,7 @@ export default function Miniatures() {
     staleTime: 30000 // Consider data fresh for 30 seconds
   });
 
+  // Filter minis
   const filteredMinis = useMemo(() => {
     if (!minis) return [];
     if (!filterText) return minis;
@@ -2555,6 +2549,17 @@ export default function Miniatures() {
     });
   }, [minis, filterText]);
 
+  // Calculate total pages based on filtered results
+  const totalPages = Math.ceil((filteredMinis?.length || 0) / ITEMS_PER_PAGE);
+
+  // Get paginated data
+  const paginatedMinis = useMemo(() => {
+    return filteredMinis.slice(
+      (currentPage - 1) * ITEMS_PER_PAGE,
+      currentPage * ITEMS_PER_PAGE
+    );
+  }, [filteredMinis, currentPage]);
+
   const renderView = () => {
     if (isLoadingMinis) {
       return (
@@ -2569,7 +2574,7 @@ export default function Miniatures() {
     }
 
     const viewProps = {
-      minis: filteredMinis || [],
+      minis: paginatedMinis,
       onEdit: setEditingMini,
       currentPage,
       onPageChange: handlePageChange,
@@ -2589,8 +2594,6 @@ export default function Miniatures() {
       }
     })();
   };
-
-  const totalPages = Math.ceil((filteredMinis?.length || 0) / ITEMS_PER_PAGE);
 
   return (
     <Stack>
@@ -2637,11 +2640,12 @@ export default function Miniatures() {
         </Group>
 
         <Stack p="sm">
-          {/* Filter Input */}
           <TextInput
+            ref={filterInputRef}
             placeholder="Filter miniatures..."
             value={filterText}
-            onChange={(event) => setFilterText(event.currentTarget.value)}
+            onChange={handleFilterChange}
+            leftSection={<IconSearch size={16} />}
             style={{ 
               marginBottom: theme.spacing.md,
               backgroundColor: theme.colors.dark[7],

@@ -536,20 +536,48 @@ export function ProductAdmin() {
     return data.slice(start, end);
   };
 
+  const [companySearchTerm, setCompanySearchTerm] = useState('');
+  const [lineSearchTerm, setLineSearchTerm] = useState('');
+  const [setSearchTerm, setSetSearchTerm] = useState('');
+
   // Get paginated and filtered data
   const getPaginatedCompanies = () => {
     const filtered = filterCompaniesWithChildren(companies ?? []);
-    return paginateData(filtered, currentCompanyPage);
+    return filtered;
   };
 
   const getPaginatedLines = () => {
     const filtered = filterLinesWithChildren(productLines ?? []);
-    return paginateData(filtered, currentLinePage);
+    return filtered;
   };
 
   const getPaginatedSets = () => {
     const filtered = filterSetsWithChildren(productSets ?? []);
-    return paginateData(filtered, currentSetPage);
+    return filtered;
+  };
+
+  const getFilteredCompaniesCount = () => {
+    const filtered = filterCompaniesWithChildren(companies ?? []);
+    return filtered.filter(company => {
+      if (!company.name) return false;
+      return company.name.toLowerCase().includes(companySearchTerm.toLowerCase());
+    }).length;
+  };
+
+  const getFilteredLinesCount = () => {
+    const filtered = filterLinesWithChildren(productLines ?? []);
+    return filtered.filter(line => {
+      if (!line.name) return false;
+      return line.name.toLowerCase().includes(lineSearchTerm.toLowerCase());
+    }).length;
+  };
+
+  const getFilteredSetsCount = () => {
+    const filtered = filterSetsWithChildren(productSets ?? []);
+    return filtered.filter(set => {
+      if (!set.name) return false;
+      return set.name.toLowerCase().includes(setSearchTerm.toLowerCase());
+    }).length;
   };
 
   return (
@@ -605,10 +633,15 @@ export function ProductAdmin() {
                         data={getPaginatedCompanies()}
                         columns={companyColumns}
                         rowComponent={renderCompanyRow}
-                        withPagination={false}
+                        withPagination={true}
                         withFiltering
                         pageSize={PAGE_SIZE}
                         filterInputProps={{
+                          value: companySearchTerm,
+                          onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
+                            setCompanySearchTerm(event.currentTarget.value);
+                            setCurrentCompanyPage(1);
+                          },
                           rightSection: (
                             <Group gap="xs" wrap="nowrap">
                               <Text size="sm" c="dimmed">In Use Only</Text>
@@ -627,10 +660,10 @@ export function ProductAdmin() {
                     )}
                   </Stack>
                 </Card>
-                {companies && filterCompaniesWithChildren(companies).length > PAGE_SIZE && (
+                {companies && getFilteredCompaniesCount() > PAGE_SIZE && (
                   <Group justify="center">
                     <Pagination
-                      total={Math.ceil(filterCompaniesWithChildren(companies).length / PAGE_SIZE)}
+                      total={Math.ceil(getFilteredCompaniesCount() / PAGE_SIZE)}
                       value={currentCompanyPage}
                       onChange={setCurrentCompanyPage}
                     />
@@ -708,10 +741,15 @@ export function ProductAdmin() {
                         data={getPaginatedLines()}
                         columns={lineColumns}
                         rowComponent={renderLineRow}
-                        withPagination={false}
+                        withPagination={true}
                         withFiltering
                         pageSize={PAGE_SIZE}
                         filterInputProps={{
+                          value: lineSearchTerm,
+                          onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
+                            setLineSearchTerm(event.currentTarget.value);
+                            setCurrentLinePage(1);
+                          },
                           rightSection: (
                             <Group gap="xs" wrap="nowrap">
                               <Text size="sm" c="dimmed">In Use Only</Text>
@@ -730,10 +768,10 @@ export function ProductAdmin() {
                     )}
                   </Stack>
                 </Card>
-                {productLines && filterLinesWithChildren(productLines).length > PAGE_SIZE && (
+                {productLines && getFilteredLinesCount() > PAGE_SIZE && (
                   <Group justify="center">
                     <Pagination
-                      total={Math.ceil(filterLinesWithChildren(productLines).length / PAGE_SIZE)}
+                      total={Math.ceil(getFilteredLinesCount() / PAGE_SIZE)}
                       value={currentLinePage}
                       onChange={setCurrentLinePage}
                     />
@@ -806,10 +844,15 @@ export function ProductAdmin() {
                         data={getPaginatedSets()}
                         columns={setColumns}
                         rowComponent={renderSetRow}
-                        withPagination={false}
+                        withPagination={true}
                         withFiltering
                         pageSize={PAGE_SIZE}
                         filterInputProps={{
+                          value: setSearchTerm,
+                          onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
+                            setSetSearchTerm(event.currentTarget.value);
+                            setCurrentSetPage(1);
+                          },
                           rightSection: (
                             <Group gap="xs" wrap="nowrap">
                               <Text size="sm" c="dimmed">In Use Only</Text>
@@ -828,10 +871,10 @@ export function ProductAdmin() {
                     )}
                   </Stack>
                 </Card>
-                {productSets && filterSetsWithChildren(productSets).length > PAGE_SIZE && (
+                {productSets && getFilteredSetsCount() > PAGE_SIZE && (
                   <Group justify="center">
                     <Pagination
-                      total={Math.ceil(filterSetsWithChildren(productSets).length / PAGE_SIZE)}
+                      total={Math.ceil(getFilteredSetsCount() / PAGE_SIZE)}
                       value={currentSetPage}
                       onChange={setCurrentSetPage}
                     />

@@ -25,6 +25,8 @@ interface DataTableProps<T> {
   filterInputProps?: {
     rightSection?: React.ReactNode;
     rightSectionWidth?: number;
+    value?: string;
+    onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
   };
 }
 
@@ -38,7 +40,14 @@ export function DataTable<T>({
   filterInputProps
 }: DataTableProps<T>) {
   const [currentPage, setCurrentPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [internalSearchTerm, setInternalSearchTerm] = useState('');
+
+  // Use external search term if provided, otherwise use internal
+  const searchTerm = filterInputProps?.value ?? internalSearchTerm;
+  const handleSearchChange = filterInputProps?.onChange ?? ((e: React.ChangeEvent<HTMLInputElement>) => {
+    setInternalSearchTerm(e.currentTarget.value);
+    setCurrentPage(1);
+  });
 
   // Filter data based on search term
   const filteredData = useMemo(() => {
@@ -64,12 +73,6 @@ export function DataTable<T>({
     ? filteredData.slice((currentPage - 1) * pageSize, currentPage * pageSize)
     : filteredData;
 
-  // Reset to first page when filter changes
-  const handleSearch = (value: string) => {
-    setSearchTerm(value);
-    setCurrentPage(1);
-  };
-
   return (
     <Stack gap="sm">
       {withFiltering && (
@@ -78,7 +81,7 @@ export function DataTable<T>({
             placeholder="Search..."
             leftSection={<IconSearch size={16} />}
             value={searchTerm}
-            onChange={(e) => handleSearch(e.currentTarget.value)}
+            onChange={handleSearchChange}
             style={{ flex: 1 }}
           />
           {filterInputProps?.rightSection}
