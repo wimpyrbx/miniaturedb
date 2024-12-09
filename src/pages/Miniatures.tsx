@@ -2554,133 +2554,11 @@ const MiniatureModal = ({ opened, onClose, miniature, onNotification }: Miniatur
 };
 
 export default function Miniatures() {
+  // Theme hooks
   const theme = useMantineTheme();
-  useMantineColorScheme();
-  const [editingMini, setEditingMini] = useState<Mini | null>(null);
-  const [isAddingMini, setIsAddingMini] = useState(false);
-  const [viewType, setViewType] = useState<ViewType>('cards');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [filterText, setFilterText] = useState('');
-  const [imageTimestamp, setImageTimestamp] = useState<number>(Date.now());
-  const filterInputRef = useRef<HTMLInputElement>(null);
-  const [notification, setNotification] = useState<{
-    show: boolean;
-    title: string;
-    message: string;
-    color: string;
-  }>({ show: false, title: '', message: '', color: 'blue' });
+  const { colorScheme } = useMantineColorScheme();
 
-  // Auto-hide notification after 3 seconds
-  useEffect(() => {
-    if (notification.show) {
-      const timer = setTimeout(() => {
-        setNotification(prev => ({ ...prev, show: false }));
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [notification.show]);
-
-  // Focus the filter input
-  const focusFilterInput = () => {
-    setTimeout(() => {
-      filterInputRef.current?.focus();
-    }, 100);
-  };
-
-  // Handle modal closes
-  const handleEditModalClose = () => {
-    setEditingMini(null);
-    focusFilterInput();
-  };
-
-  const handleAddModalClose = () => {
-    setIsAddingMini(false);
-    focusFilterInput();
-  };
-
-  // Load saved view type preference
-  useEffect(() => {
-    const loadPreferences = async () => {
-      try {
-        const settings = await getSettings();
-        if (settings.miniatures_view_type && 
-            ['table', 'cards', 'banner', 'timeline'].includes(settings.miniatures_view_type)) {
-          setViewType(settings.miniatures_view_type as ViewType);
-        }
-        // Only set the last page if there's no saved filter
-        if (!settings.miniatures_view_last_filter_text && settings.miniatures_view_last_page_visited) {
-          setCurrentPage(parseInt(settings.miniatures_view_last_page_visited));
-        } else {
-          setCurrentPage(1); // Reset to page 1 if there's a filter
-        }
-        if (settings.miniatures_view_last_filter_text) {
-          setFilterText(settings.miniatures_view_last_filter_text);
-        }
-      } catch (error) {
-        console.error('Failed to load preferences:', error);
-      }
-    };
-    loadPreferences();
-  }, []);
-
-  // Save view type preference when changed
-  const handleViewChange = async (value: string) => {
-    const newViewType = value as ViewType;
-    setViewType(newViewType);
-    focusFilterInput();
-    try {
-      await updateSettings({
-        setting_key: 'miniatures_view_type',
-        setting_value: newViewType
-      });
-    } catch (error) {
-      console.error('Failed to save view preference:', error);
-    }
-  };
-
-  // Handle page change
-  const handlePageChange = async (page: number) => {
-    setCurrentPage(page);
-    focusFilterInput();
-    try {
-      await updateSettings({
-        setting_key: 'miniatures_view_last_page_visited',
-        setting_value: page.toString()
-      });
-    } catch (error) {
-      console.error('Failed to save page preference:', error);
-    }
-  };
-
-  // Handle filter text changes with debounce
-  const debouncedSaveFilter = useMemo(
-    () =>
-      debounce(async (text: string) => {
-        try {
-          await updateSettings({
-            setting_key: 'miniatures_view_last_filter_text',
-            setting_value: text
-          });
-        } catch (error) {
-          console.error('Failed to save filter preference:', error);
-        }
-      }, 500),
-    []
-  );
-
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newText = e.target.value;
-    setFilterText(newText);
-    setCurrentPage(1);  // Reset to page 1 when filter changes
-    debouncedSaveFilter(newText);
-  };
-
-  // Focus on initial load
-  useEffect(() => {
-    focusFilterInput();
-  }, []);
-
-  // Queries with better caching
+  // Query hooks
   const { data: minis, isLoading: isLoadingMinis } = useQuery<Mini[]>({
     queryKey: ['minis'],
     queryFn: async () => {
@@ -2701,17 +2579,97 @@ export default function Miniatures() {
     staleTime: 30000 // Consider data fresh for 30 seconds
   });
 
-  // Filter minis
+  // Refs
+  const filterInputRef = useRef<HTMLInputElement>(null);
+  const hasLoadedPreferences = useRef(false);
+
+  // State hooks
+  const [isLoading, setIsLoading] = useState(true);
+  const [editingMini, setEditingMini] = useState<Mini | null>(null);
+  const [isAddingMini, setIsAddingMini] = useState(false);
+  const [viewType, setViewType] = useState<ViewType>('cards');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [filterText, setFilterText] = useState('');
+  const [imageTimestamp, setImageTimestamp] = useState<number>(Date.now());
+  const [notification, setNotification] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    color: string;
+  }>({ show: false, title: '', message: '', color: 'blue' });
+
+  // Load initial settings
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await getSettings();
+        if (settings?.viewtype) {
+          setViewType(settings.viewtype);
+        }
+      } catch (error) {
+        console.error('Failed to load settings:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadSettings();
+  }, []);
+
+  // Load preferences
+  useEffect(() => {
+    const loadPreferences = async () => {
+      if (hasLoadedPreferences.current) return;
+      
+      try {
+        const settings = await getSettings();
+        if (settings.miniatures_view_type && 
+            ['table', 'cards', 'banner', 'timeline'].includes(settings.miniatures_view_type)) {
+          setViewType(settings.miniatures_view_type as ViewType);
+        }
+        if (!settings.miniatures_view_last_filter_text && settings.miniatures_view_last_page_visited) {
+          setCurrentPage(parseInt(settings.miniatures_view_last_page_visited));
+        } else {
+          setCurrentPage(1);
+        }
+        if (settings.miniatures_view_last_filter_text) {
+          setFilterText(settings.miniatures_view_last_filter_text);
+        }
+        hasLoadedPreferences.current = true;
+      } catch (error) {
+        console.error('Failed to load preferences:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadPreferences();
+  }, []);
+
+  // Memoized values
+  const debouncedSaveFilter = useMemo(
+    () =>
+      debounce(async (text: string) => {
+        try {
+          await updateSettings({
+            setting_key: 'miniatures_view_last_filter_text',
+            setting_value: text
+          });
+        } catch (error) {
+          console.error('Failed to save filter preference:', error);
+        }
+      }, 500),
+    []
+  );
+
   const filteredMinis = useMemo(() => {
     if (!minis) return [];
     if (!filterText) return minis;
 
     const searchText = filterText.toLowerCase();
     return minis.filter(mini => {
-      // Handle potentially undefined mini object
       if (!mini) return false;
 
-      // Handle arrays that might be undefined
       const types = mini.types || [];
       const categoryNames = mini.category_names || [];
       const tags = mini.tags || [];
@@ -2742,30 +2700,79 @@ export default function Miniatures() {
     });
   }, [minis, filterText]);
 
-  // Calculate total pages based on filtered results
-  const totalPages = Math.ceil((filteredMinis?.length || 0) / ITEMS_PER_PAGE);
-
-  // Get paginated data for non-table views
   const paginatedMinis = useMemo(() => {
     if (viewType === 'table') {
-      return filteredMinis; // For table view, return all data and let DataTable handle pagination
+      return filteredMinis;
     }
-    // For other views, handle pagination here
-    return filteredMinis.slice(
-      (currentPage - 1) * ITEMS_PER_PAGE,
-      currentPage * ITEMS_PER_PAGE
-    );
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    return filteredMinis.slice(start, end);
   }, [filteredMinis, currentPage, viewType]);
 
-  const renderView = () => {
-    if (isLoadingMinis) {
-      return (
-        <Center py="md">
-          <Loader size="sm" />
-        </Center>
-      );
-    }
+  useEffect(() => {
+    focusFilterInput();
+  }, []);
 
+  // Helper functions
+  const focusFilterInput = () => {
+    setTimeout(() => {
+      filterInputRef.current?.focus();
+    }, 100);
+  };
+
+  const handleEditModalClose = () => {
+    setEditingMini(null);
+    focusFilterInput();
+  };
+
+  const handleAddModalClose = () => {
+    setIsAddingMini(false);
+    focusFilterInput();
+  };
+
+  const handleViewChange = async (value: string) => {
+    const newViewType = value as ViewType;
+    setViewType(newViewType);
+    focusFilterInput();
+    try {
+      await updateSettings({
+        setting_key: 'miniatures_view_type',
+        setting_value: newViewType
+      });
+    } catch (error) {
+      console.error('Failed to save view preference:', error);
+    }
+  };
+
+  const handlePageChange = async (page: number) => {
+    setCurrentPage(page);
+    focusFilterInput();
+    try {
+      await updateSettings({
+        setting_key: 'miniatures_view_last_page_visited',
+        setting_value: page.toString()
+      });
+    } catch (error) {
+      console.error('Failed to save page preference:', error);
+    }
+  };
+
+  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newText = e.target.value;
+    setFilterText(newText);
+    setCurrentPage(1);
+    debouncedSaveFilter(newText);
+  };
+
+  // Calculate total pages
+  const totalPages = Math.ceil((filteredMinis?.length || 0) / ITEMS_PER_PAGE);
+
+  // Loading state - now checks for both loading states
+  if (isLoading || isLoadingMinis || !hasLoadedPreferences.current) {
+    return null;
+  }
+
+  const renderView = () => {
     if (!filteredMinis?.length) {
       return <Text c="dimmed" ta="center">No miniatures found</Text>;
     }
