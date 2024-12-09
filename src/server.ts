@@ -1554,6 +1554,127 @@ app.get('/api/dashboard/collection-growth', requireAuth, (_req, res) => {
   }
 });
 
+app.get('/api/dashboard/painted-by-distribution', requireAuth, (_req, res) => {
+  try {
+    const data = getMinisDb().prepare(`
+      SELECT 
+        pb.painted_by_name as name,
+        COUNT(m.id) as count
+      FROM minis m
+      JOIN painted_by pb ON m.painted_by_id = pb.id
+      GROUP BY pb.id, pb.painted_by_name
+      ORDER BY count DESC
+    `).all();
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching painted by distribution:', error);
+    res.status(500).json({ error: 'Failed to fetch painted by distribution' });
+  }
+});
+
+app.get('/api/dashboard/base-size-distribution', requireAuth, (_req, res) => {
+  try {
+    const data = getMinisDb().prepare(`
+      SELECT 
+        bs.base_size_name as name,
+        COUNT(m.id) as count
+      FROM base_sizes bs
+      LEFT JOIN minis m ON bs.id = m.base_size_id
+      GROUP BY bs.id, bs.base_size_name
+      HAVING count > 0
+      ORDER BY count DESC
+    `).all();
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching base size distribution:', error);
+    res.status(500).json({ error: 'Failed to fetch base size distribution' });
+  }
+});
+
+app.get('/api/dashboard/painted-by-distribution', requireAuth, (_req, res) => {
+  try {
+    const data = getMinisDb().prepare(`
+      SELECT 
+        COALESCE(pb.painted_by_name, 'Unknown') as name,
+        COUNT(m.id) as count
+      FROM painted_by pb
+      LEFT JOIN minis m ON pb.id = m.painted_by_id
+      GROUP BY pb.id, pb.painted_by_name
+      HAVING count > 0
+      ORDER BY count DESC
+    `).all();
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching painted by distribution:', error);
+    res.status(500).json({ error: 'Failed to fetch painted by distribution' });
+  }
+});
+
+app.get('/api/dashboard/product-line-distribution', requireAuth, (_req, res) => {
+  try {
+    const data = getMinisDb().prepare(`
+      SELECT 
+        pc.name as company,
+        pl.name as productLine,
+        COUNT(m.id) as count
+      FROM production_companies pc
+      JOIN product_lines pl ON pc.id = pl.company_id
+      JOIN product_sets ps ON pl.id = ps.product_line_id
+      JOIN minis m ON ps.id = m.product_set_id
+      GROUP BY pc.id, pc.name, pl.id, pl.name
+      ORDER BY count DESC, pc.name, pl.name
+    `).all();
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching product line distribution:', error);
+    res.status(500).json({ error: 'Failed to fetch product line distribution' });
+  }
+});
+
+app.get('/api/dashboard/top-company-distribution', requireAuth, (_req, res) => {
+  try {
+    const data = getMinisDb().prepare(`
+      SELECT 
+        pc.name,
+        COUNT(m.id) as count
+      FROM production_companies pc
+      JOIN product_lines pl ON pc.id = pl.company_id
+      JOIN product_sets ps ON pl.id = ps.product_line_id
+      JOIN minis m ON ps.id = m.product_set_id
+      GROUP BY pc.id, pc.name
+      ORDER BY count DESC
+      LIMIT 5
+    `).all();
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching top company distribution:', error);
+    res.status(500).json({ error: 'Failed to fetch top company distribution' });
+  }
+});
+
+app.get('/api/dashboard/top-set-distribution', requireAuth, (_req, res) => {
+  try {
+    const data = getMinisDb().prepare(`
+      SELECT 
+        ps.name,
+        pl.name as productLine,
+        pc.name as company,
+        COUNT(m.id) as count
+      FROM product_sets ps
+      JOIN product_lines pl ON ps.product_line_id = pl.id
+      JOIN production_companies pc ON pl.company_id = pc.id
+      JOIN minis m ON ps.id = m.product_set_id
+      GROUP BY ps.id, ps.name, pl.name, pc.name
+      ORDER BY count DESC
+      LIMIT 5
+    `).all();
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching top set distribution:', error);
+    res.status(500).json({ error: 'Failed to fetch top set distribution' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 }); 

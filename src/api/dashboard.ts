@@ -1,4 +1,4 @@
-import type { TypeDistribution, LocationDistribution, CollectionGrowth } from '../types/dashboard';
+import type { TypeDistribution, LocationDistribution, CollectionGrowth, PaintedByDistribution, ProductLineDistribution, CompanyDistribution, SetDistribution } from '../types/dashboard';
 import { API_BASE_URL } from '../config/api';
 
 export async function getTypeDistribution(): Promise<TypeDistribution[]> {
@@ -27,6 +27,56 @@ export async function getCollectionGrowth(): Promise<CollectionGrowth[]> {
   });
   if (!response.ok) {
     throw new Error('Failed to fetch collection growth');
+  }
+  return response.json();
+}
+
+export async function getPaintedByDistribution(): Promise<PaintedByDistribution[]> {
+  const response = await fetch(`${API_BASE_URL}/dashboard/painted-by-distribution`, {
+    credentials: 'include'
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch painted by distribution');
+  }
+  return response.json();
+}
+
+export async function getBaseSizeDistribution(): Promise<PaintedByDistribution[]> {
+  const response = await fetch(`${API_BASE_URL}/dashboard/base-size-distribution`, {
+    credentials: 'include'
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch base size distribution');
+  }
+  return response.json();
+}
+
+export async function getProductLineDistribution(): Promise<ProductLineDistribution[]> {
+  const response = await fetch(`${API_BASE_URL}/dashboard/product-line-distribution`, {
+    credentials: 'include'
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch product line distribution');
+  }
+  return response.json();
+}
+
+export async function getTopCompanyDistribution(): Promise<CompanyDistribution[]> {
+  const response = await fetch(`${API_BASE_URL}/dashboard/top-company-distribution`, {
+    credentials: 'include'
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch top company distribution');
+  }
+  return response.json();
+}
+
+export async function getTopSetDistribution(): Promise<SetDistribution[]> {
+  const response = await fetch(`${API_BASE_URL}/dashboard/top-set-distribution`, {
+    credentials: 'include'
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch top set distribution');
   }
   return response.json();
 } 
