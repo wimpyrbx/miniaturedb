@@ -1616,7 +1616,7 @@ app.get('/api/dashboard/product-line-distribution', requireAuth, (_req, res) => 
       SELECT 
         pc.name as company,
         pl.name as productLine,
-        COUNT(m.id) as count
+        COUNT(DISTINCT m.id) as count
       FROM production_companies pc
       JOIN product_lines pl ON pc.id = pl.company_id
       JOIN product_sets ps ON pl.id = ps.product_line_id
@@ -1636,7 +1636,7 @@ app.get('/api/dashboard/top-company-distribution', requireAuth, (_req, res) => {
     const data = getMinisDb().prepare(`
       SELECT 
         pc.name,
-        COUNT(m.id) as count
+        COUNT(DISTINCT m.id) as count
       FROM production_companies pc
       JOIN product_lines pl ON pc.id = pl.company_id
       JOIN product_sets ps ON pl.id = ps.product_line_id
@@ -1659,7 +1659,7 @@ app.get('/api/dashboard/top-set-distribution', requireAuth, (_req, res) => {
         ps.name,
         pl.name as productLine,
         pc.name as company,
-        COUNT(m.id) as count
+        COUNT(DISTINCT m.id) as count
       FROM product_sets ps
       JOIN product_lines pl ON ps.product_line_id = pl.id
       JOIN production_companies pc ON pl.company_id = pc.id
@@ -1672,6 +1672,37 @@ app.get('/api/dashboard/top-set-distribution', requireAuth, (_req, res) => {
   } catch (error) {
     console.error('Error fetching top set distribution:', error);
     res.status(500).json({ error: 'Failed to fetch top set distribution' });
+  }
+});
+
+app.get('/api/dashboard/tag-distribution', requireAuth, (_req, res) => {
+  try {
+    // Debug: Check table structure
+    const tagStructure = getMinisDb().prepare(`
+      SELECT sql FROM sqlite_master WHERE type='table' AND name='mini_to_tags'
+    `).get();
+    console.log('mini_to_tags structure:', tagStructure);
+
+    const data = getMinisDb().prepare(`
+      SELECT 
+        t.id as key,
+        t.name as text,
+        COUNT(mt.mini_id) as value
+      FROM tags t
+      INNER JOIN mini_to_tags mt ON t.id = mt.tag_id
+      GROUP BY t.id, t.name
+      ORDER BY value DESC
+    `).all();
+
+    console.log('Tag distribution data:', data);
+    res.json(data);
+  } catch (error: any) {
+    console.error('Error in tag distribution query:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch tag distribution',
+      details: error?.message || 'Unknown error',
+      stack: error?.stack
+    });
   }
 });
 

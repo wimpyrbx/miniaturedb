@@ -34,4 +34,9 @@ export interface SetDistribution {
   productLine: string;
   company: string;
   count: number;
+}
+
+export interface TagDistribution {
+  text: string;
+  value: number;
 } 

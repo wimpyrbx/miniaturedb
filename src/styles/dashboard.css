@@ -1,0 +1,29 @@
+.tag-cloud {
+  padding: 20px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  justify-content: center;
+  align-items: center;
+}
+
+.tag-cloud > span {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  color: #1890ff !important;
+}
+
+.tag-cloud > span:hover {
+  transform: scale(1.1);
+}
+
+/* Fix for white background in charts */
+.recharts-layer path {
+  fill: transparent !important;
+}
+
+.recharts-bar-rectangle path {
+  fill: var(--bar-fill, #1890ff) !important;
+} 

@@ -1,4 +1,4 @@
-import type { TypeDistribution, LocationDistribution, CollectionGrowth, PaintedByDistribution, ProductLineDistribution, CompanyDistribution, SetDistribution } from '../types/dashboard';
+import type { TypeDistribution, LocationDistribution, CollectionGrowth, PaintedByDistribution, ProductLineDistribution, CompanyDistribution, SetDistribution, TagDistribution } from '../types/dashboard';
 import { API_BASE_URL } from '../config/api';
 
 export async function getTypeDistribution(): Promise<TypeDistribution[]> {
@@ -77,6 +77,16 @@ export async function getTopSetDistribution(): Promise<SetDistribution[]> {
   });
   if (!response.ok) {
     throw new Error('Failed to fetch top set distribution');
+  }
+  return response.json();
+}
+
+export async function getTagDistribution(): Promise<TagDistribution[]> {
+  const response = await fetch(`${API_BASE_URL}/dashboard/tag-distribution`, {
+    credentials: 'include'
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch tag distribution');
   }
   return response.json();
 } 
