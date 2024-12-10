@@ -327,7 +327,7 @@ export function Dashboard() {
         {/* Painted By Distribution Card */}
         <Grid.Col span={6}>
           <Card shadow="sm" p="md">
-            <Title order={2} size="h3" mb="md">Painted By Distribution</Title>
+            <Title order={2} size="h3" mb="md">Paintedz... By Distribution</Title>
             {isLoadingPaintedBy ? (
               <Center h={300}>
                 <Loader />
